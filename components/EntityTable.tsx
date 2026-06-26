@@ -1,9 +1,15 @@
+"use client";
+
 import Link from "next/link";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Eye, Pencil, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+
+type SortValue = string | number | boolean | null | undefined;
 
 export type TableColumn<T> = {
   header: string;
   cell: (item: T) => React.ReactNode;
+  sortValue?: (item: T) => SortValue;
 };
 
 type EntityTableProps<T extends { id: string }> = {
@@ -25,6 +31,47 @@ export function EntityTable<T extends { id: string }>({
   onEdit,
   onDelete,
 }: EntityTableProps<T>) {
+  const sortableColumns = columns.filter((column) => column.sortValue);
+  const [sort, setSort] = useState<{ header: string; direction: "asc" | "desc" } | null>(
+    sortableColumns[0] ? { header: sortableColumns[0].header, direction: "asc" } : null,
+  );
+
+  const sortedItems = useMemo(() => {
+    if (!sort) return items;
+    const column = columns.find((item) => item.header === sort.header);
+    if (!column?.sortValue) return items;
+
+    return [...items].sort((first, second) => {
+      const firstValue = column.sortValue?.(first);
+      const secondValue = column.sortValue?.(second);
+      const firstEmpty = firstValue === null || firstValue === undefined || firstValue === "";
+      const secondEmpty = secondValue === null || secondValue === undefined || secondValue === "";
+
+      if (firstEmpty && secondEmpty) return 0;
+      if (firstEmpty) return 1;
+      if (secondEmpty) return -1;
+
+      const result =
+        typeof firstValue === "number" && typeof secondValue === "number"
+          ? firstValue - secondValue
+          : String(firstValue).localeCompare(String(secondValue), undefined, {
+              numeric: true,
+              sensitivity: "base",
+            });
+
+      return sort.direction === "asc" ? result : -result;
+    });
+  }, [columns, items, sort]);
+
+  function toggleSort(column: TableColumn<T>) {
+    if (!column.sortValue) return;
+    setSort((current) =>
+      current?.header === column.header
+        ? { header: column.header, direction: current.direction === "asc" ? "desc" : "asc" }
+        : { header: column.header, direction: "asc" },
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
@@ -44,14 +91,33 @@ export function EntityTable<T extends { id: string }>({
             <tr>
               {columns.map((column) => (
                 <th key={column.header} className="px-4 py-3">
-                  {column.header}
+                  {column.sortValue ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(column)}
+                      className="inline-flex items-center gap-1 font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-950"
+                    >
+                      {column.header}
+                      {sort?.header === column.header ? (
+                        sort.direction === "asc" ? (
+                          <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                        ) : (
+                          <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+                        )
+                      ) : (
+                        <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
+                      )}
+                    </button>
+                  ) : (
+                    column.header
+                  )}
                 </th>
               ))}
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {items.map((item) => (
+            {sortedItems.map((item) => (
               <tr key={item.id} className="align-top">
                 {columns.map((column) => (
                   <td key={column.header} className="px-4 py-3 text-slate-700">

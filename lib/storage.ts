@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { STORAGE_KEY } from "./constants";
 import { seedData } from "./seed";
 import type {
+  DuplicateDecision,
+  DuplicateDecisionStatus,
   Project,
   IntegrationPlan,
   Relationship,
@@ -18,11 +20,78 @@ function cloneSeed(): StackMapData {
   return JSON.parse(JSON.stringify(seedData)) as StackMapData;
 }
 
+function combineNotes(keepNotes: string, removeNotes: string) {
+  return [keepNotes, removeNotes]
+    .map((note) => note.trim())
+    .filter(Boolean)
+    .filter((note, index, notes) => notes.indexOf(note) === index)
+    .join("\n");
+}
+
+function relationshipKey(relationship: Relationship) {
+  return [
+    relationship.fromType,
+    relationship.fromId,
+    relationship.toType,
+    relationship.toId,
+    relationship.relationshipType,
+  ].join(":");
+}
+
+function replaceRelationshipEntity(
+  relationship: Relationship,
+  type: "project" | "tool",
+  removeId: string,
+  keepId: string,
+  updatedAt: string,
+) {
+  return {
+    ...relationship,
+    fromId:
+      relationship.fromType === type && relationship.fromId === removeId
+        ? keepId
+        : relationship.fromId,
+    toId:
+      relationship.toType === type && relationship.toId === removeId ? keepId : relationship.toId,
+    updatedAt,
+  };
+}
+
+function removeDuplicateRelationships(relationships: Relationship[]) {
+  const seen = new Set<string>();
+  return relationships.filter((relationship) => {
+    if (
+      relationship.fromType === relationship.toType &&
+      relationship.fromId === relationship.toId
+    ) {
+      return false;
+    }
+
+    const key = relationshipKey(relationship);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function filterDecisionsForRemovedRecord(
+  decisions: DuplicateDecision[],
+  removeId: string,
+  duplicateGroupId?: string,
+) {
+  return decisions.filter(
+    (decision) =>
+      decision.duplicateGroupId !== duplicateGroupId &&
+      decision.keepRecordId !== removeId &&
+      !decision.duplicateGroupId.includes(removeId),
+  );
+}
+
 function isStackMapData(value: unknown): value is Omit<
   StackMapData,
-  "suggestions" | "integrationPlans"
+  "suggestions" | "integrationPlans" | "duplicateDecisions"
 > &
-  Partial<Pick<StackMapData, "suggestions" | "integrationPlans">> {
+  Partial<Pick<StackMapData, "suggestions" | "integrationPlans" | "duplicateDecisions">> {
   const candidate = value as StackMapData;
   return Boolean(
     candidate &&
@@ -34,8 +103,8 @@ function isStackMapData(value: unknown): value is Omit<
 }
 
 function normalizeData(
-  value: Omit<StackMapData, "suggestions" | "integrationPlans"> &
-    Partial<Pick<StackMapData, "suggestions" | "integrationPlans">>,
+  value: Omit<StackMapData, "suggestions" | "integrationPlans" | "duplicateDecisions"> &
+    Partial<Pick<StackMapData, "suggestions" | "integrationPlans" | "duplicateDecisions">>,
 ): StackMapData {
   return {
     projects: value.projects,
@@ -43,6 +112,9 @@ function normalizeData(
     relationships: value.relationships,
     subscriptions: value.subscriptions,
     suggestions: Array.isArray(value.suggestions) ? value.suggestions : [],
+    duplicateDecisions: Array.isArray(value.duplicateDecisions)
+      ? value.duplicateDecisions
+      : [],
     integrationPlans: Array.isArray(value.integrationPlans)
       ? value.integrationPlans
       : cloneSeed().integrationPlans,
@@ -114,6 +186,7 @@ export function useStackMapData() {
         setData((current) => ({
           ...current,
           projects: current.projects.filter((item) => item.id !== id),
+          duplicateDecisions: filterDecisionsForRemovedRecord(current.duplicateDecisions, id),
           relationships: current.relationships.filter(
             (item) =>
               !(item.fromType === "project" && item.fromId === id) &&
@@ -162,6 +235,7 @@ export function useStackMapData() {
         setData((current) => ({
           ...current,
           tools: current.tools.filter((item) => item.id !== id),
+          duplicateDecisions: filterDecisionsForRemovedRecord(current.duplicateDecisions, id),
           subscriptions: current.subscriptions.filter((item) => item.toolId !== id),
           relationships: current.relationships.filter(
             (item) =>
@@ -284,6 +358,163 @@ export function useStackMapData() {
           ...current,
           suggestions: [],
         }));
+      },
+      setDuplicateDecision(
+        duplicateGroupId: string,
+        status: DuplicateDecisionStatus,
+        keepRecordId?: string,
+      ) {
+        const now = timestamp();
+        setData((current) => {
+          const existing = current.duplicateDecisions.find(
+            (decision) => decision.duplicateGroupId === duplicateGroupId,
+          );
+          const nextDecision: DuplicateDecision = existing
+            ? { ...existing, status, keepRecordId, updatedAt: now }
+            : {
+                id: createId("duplicate-decision"),
+                duplicateGroupId,
+                status,
+                keepRecordId,
+                notes: "",
+                createdAt: now,
+                updatedAt: now,
+              };
+
+          return {
+            ...current,
+            duplicateDecisions: existing
+              ? current.duplicateDecisions.map((decision) =>
+                  decision.id === existing.id ? nextDecision : decision,
+                )
+              : [...current.duplicateDecisions, nextDecision],
+          };
+        });
+      },
+      clearDuplicateDecision(duplicateGroupId: string) {
+        setData((current) => ({
+          ...current,
+          duplicateDecisions: current.duplicateDecisions.filter(
+            (decision) => decision.duplicateGroupId !== duplicateGroupId,
+          ),
+        }));
+      },
+      mergeDuplicateRecords(
+        kind: "Project" | "Tool",
+        keepId: string,
+        removeId: string,
+        duplicateGroupId?: string,
+      ) {
+        if (keepId === removeId) return;
+        const now = timestamp();
+        setData((current) => {
+          if (kind === "Project") {
+            const keep = current.projects.find((project) => project.id === keepId);
+            const remove = current.projects.find((project) => project.id === removeId);
+            if (!keep || !remove) return current;
+
+            const projects = current.projects
+              .map((project) =>
+                project.id === keepId
+                  ? {
+                      ...project,
+                      type:
+                        project.type === "other" && remove.type !== "other"
+                          ? remove.type
+                          : project.type,
+                      notes: combineNotes(project.notes, remove.notes),
+                      lastReviewedAt: project.lastReviewedAt || remove.lastReviewedAt,
+                      source: project.source ?? remove.source,
+                      sourceName: project.sourceName || remove.sourceName,
+                      sourceUrl: project.sourceUrl || remove.sourceUrl,
+                      sourceVisibility: project.sourceVisibility || remove.sourceVisibility,
+                      primaryLanguage: project.primaryLanguage || remove.primaryLanguage,
+                      lastDetectedAt: project.lastDetectedAt || remove.lastDetectedAt,
+                      updatedAt: now,
+                    }
+                  : project,
+              )
+              .filter((project) => project.id !== removeId);
+
+            const relationships = removeDuplicateRelationships(
+              current.relationships.map((relationship) =>
+                replaceRelationshipEntity(relationship, "project", removeId, keepId, now),
+              ),
+            );
+
+            return {
+              ...current,
+              projects,
+              relationships,
+              duplicateDecisions: filterDecisionsForRemovedRecord(
+                current.duplicateDecisions,
+                removeId,
+                duplicateGroupId,
+              ),
+            };
+          }
+
+          const keep = current.tools.find((tool) => tool.id === keepId);
+          const remove = current.tools.find((tool) => tool.id === removeId);
+          if (!keep || !remove) return current;
+
+          const tools = current.tools
+            .map((tool) =>
+              tool.id === keepId
+                ? {
+                    ...tool,
+                    category:
+                      tool.category === "other" && remove.category !== "other"
+                        ? remove.category
+                        : tool.category,
+                    websiteUrl: tool.websiteUrl || remove.websiteUrl,
+                    loginUrl: tool.loginUrl || remove.loginUrl,
+                    accountEmail: tool.accountEmail || remove.accountEmail,
+                    paidStatus:
+                      tool.paidStatus === "unknown" && remove.paidStatus !== "unknown"
+                        ? remove.paidStatus
+                        : tool.paidStatus,
+                    monthlyCost: tool.monthlyCost || remove.monthlyCost,
+                    annualCost: tool.annualCost || remove.annualCost,
+                    billingCycle: tool.billingCycle || remove.billingCycle,
+                    renewalDate: tool.renewalDate || remove.renewalDate,
+                    notes: combineNotes(tool.notes, remove.notes),
+                    lastReviewedAt: tool.lastReviewedAt || remove.lastReviewedAt,
+                    source: tool.source ?? remove.source,
+                    sourceName: tool.sourceName || remove.sourceName,
+                    sourceUrl: tool.sourceUrl || remove.sourceUrl,
+                    sourceVisibility: tool.sourceVisibility || remove.sourceVisibility,
+                    primaryLanguage: tool.primaryLanguage || remove.primaryLanguage,
+                    lastDetectedAt: tool.lastDetectedAt || remove.lastDetectedAt,
+                    updatedAt: now,
+                  }
+                : tool,
+            )
+            .filter((tool) => tool.id !== removeId);
+
+          const relationships = removeDuplicateRelationships(
+            current.relationships.map((relationship) =>
+              replaceRelationshipEntity(relationship, "tool", removeId, keepId, now),
+            ),
+          );
+          const subscriptions = current.subscriptions.map((subscription) =>
+            subscription.toolId === removeId
+              ? { ...subscription, toolId: keepId, updatedAt: now }
+              : subscription,
+          );
+
+          return {
+            ...current,
+            tools,
+            relationships,
+            subscriptions,
+            duplicateDecisions: filterDecisionsForRemovedRecord(
+              current.duplicateDecisions,
+              removeId,
+              duplicateGroupId,
+            ),
+          };
+        });
       },
       updateIntegrationPlan(
         id: string,

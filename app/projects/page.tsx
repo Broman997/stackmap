@@ -23,17 +23,22 @@ export default function ProjectsPage() {
   );
 
   const columns: TableColumn<Project>[] = [
-    { header: "Name", cell: (item) => <span className="font-medium text-slate-950">{item.name}</span> },
-    { header: "Type", cell: (item) => item.type },
-    { header: "Status", cell: (item) => item.status },
+    {
+      header: "Name",
+      cell: (item) => <span className="font-medium text-slate-950">{item.name}</span>,
+      sortValue: (item) => item.name,
+    },
+    { header: "Type", cell: (item) => item.type, sortValue: (item) => item.type },
+    { header: "Status", cell: (item) => item.status, sortValue: (item) => item.status },
     {
       header: "Review",
       cell: (item) => {
         const count = getProjectReviewItems(item, data).length;
         return count ? `${count} item${count === 1 ? "" : "s"}` : "Clear";
       },
+      sortValue: (item) => getProjectReviewItems(item, data).length,
     },
-    { header: "Notes", cell: (item) => item.notes || "No notes" },
+    { header: "Notes", cell: (item) => item.notes || "No notes", sortValue: (item) => item.notes },
   ];
 
   return (

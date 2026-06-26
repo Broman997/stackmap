@@ -25,19 +25,32 @@ export default function ToolsPage() {
   );
 
   const columns: TableColumn<Tool>[] = [
-    { header: "Name", cell: (item) => <span className="font-medium text-slate-950">{item.name}</span> },
-    { header: "Category", cell: (item) => item.category },
-    { header: "Paid", cell: (item) => item.paidStatus },
-    { header: "Cost", cell: (item) => `${formatCurrency(item.monthlyCost)}/mo, ${formatCurrency(item.annualCost)}/yr` },
-    { header: "Renewal", cell: (item) => formatDate(item.renewalDate) },
+    {
+      header: "Name",
+      cell: (item) => <span className="font-medium text-slate-950">{item.name}</span>,
+      sortValue: (item) => item.name,
+    },
+    { header: "Category", cell: (item) => item.category, sortValue: (item) => item.category },
+    { header: "Paid", cell: (item) => item.paidStatus, sortValue: (item) => item.paidStatus },
+    {
+      header: "Cost",
+      cell: (item) => `${formatCurrency(item.monthlyCost)}/mo, ${formatCurrency(item.annualCost)}/yr`,
+      sortValue: (item) => item.monthlyCost + item.annualCost / 12,
+    },
+    {
+      header: "Renewal",
+      cell: (item) => formatDate(item.renewalDate),
+      sortValue: (item) => item.renewalDate ? new Date(item.renewalDate).getTime() : null,
+    },
     {
       header: "Review",
       cell: (item) => {
         const count = getToolReviewItems(item, data).length;
         return count ? `${count} item${count === 1 ? "" : "s"}` : "Clear";
       },
+      sortValue: (item) => getToolReviewItems(item, data).length,
     },
-    { header: "Status", cell: (item) => item.status },
+    { header: "Status", cell: (item) => item.status, sortValue: (item) => item.status },
   ];
 
   return (

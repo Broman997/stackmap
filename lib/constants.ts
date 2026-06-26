@@ -58,6 +58,7 @@ export const RELATIONSHIP_TYPES: RelationshipType[] = [
   "stores_data_in",
   "pays_for",
   "integrates_with",
+  "assists_with",
   "publishes_to",
   "markets_through",
   "other",

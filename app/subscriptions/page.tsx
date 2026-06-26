@@ -24,12 +24,28 @@ export default function SubscriptionsPage() {
   }, []);
 
   const columns: TableColumn<Subscription>[] = [
-    { header: "Vendor", cell: (item) => <span className="font-medium text-slate-950">{item.vendorName}</span> },
-    { header: "Tool", cell: (item) => data.tools.find((tool) => tool.id === item.toolId)?.name ?? "Unknown" },
-    { header: "Amount", cell: (item) => formatCurrency(item.amount, item.currency) },
-    { header: "Cycle", cell: (item) => item.billingCycle },
-    { header: "Next Renewal", cell: (item) => formatDate(item.nextRenewalDate) },
-    { header: "Status", cell: (item) => item.status },
+    {
+      header: "Vendor",
+      cell: (item) => <span className="font-medium text-slate-950">{item.vendorName}</span>,
+      sortValue: (item) => item.vendorName,
+    },
+    {
+      header: "Tool",
+      cell: (item) => data.tools.find((tool) => tool.id === item.toolId)?.name ?? "Unknown",
+      sortValue: (item) => data.tools.find((tool) => tool.id === item.toolId)?.name ?? "",
+    },
+    {
+      header: "Amount",
+      cell: (item) => formatCurrency(item.amount, item.currency),
+      sortValue: (item) => item.amount,
+    },
+    { header: "Cycle", cell: (item) => item.billingCycle, sortValue: (item) => item.billingCycle },
+    {
+      header: "Next Renewal",
+      cell: (item) => formatDate(item.nextRenewalDate),
+      sortValue: (item) => item.nextRenewalDate ? new Date(item.nextRenewalDate).getTime() : null,
+    },
+    { header: "Status", cell: (item) => item.status, sortValue: (item) => item.status },
   ];
 
   return (

@@ -16,6 +16,7 @@ import type {
 } from "@/lib/types";
 
 type SuggestionTypeFilter = "all" | SuggestionEntityType;
+type EntityOption = { type: EntityType; id: string; name: string };
 
 function textField(suggestion: Suggestion, key: string, fallback = "") {
   const value = suggestion.detectedFields[key];
@@ -29,6 +30,10 @@ function numberField(suggestion: Suggestion, key: string, fallback = 0) {
 
 function normalize(value: string) {
   return value.trim().toLowerCase();
+}
+
+function compactName(value: string) {
+  return normalize(value).replace(/[^a-z0-9]/g, "");
 }
 
 function sourceMetadata(suggestion: Suggestion): SourceMetadata {
@@ -47,23 +52,32 @@ function findEntityBySuggestion(
   type: EntityType,
   name: string,
   sourceUrl: string,
+  selectedId = "",
 ) {
   if (type === "project") {
+    if (selectedId) return data.projects.find((project) => project.id === selectedId);
     return data.projects.find(
       (project) =>
         (sourceUrl && project.sourceUrl === sourceUrl) ||
-        normalize(project.name) === normalize(name),
+        normalize(project.name) === normalize(name) ||
+        compactName(project.name) === compactName(name),
     );
   }
 
+  if (selectedId) return data.tools.find((tool) => tool.id === selectedId);
   return data.tools.find(
     (tool) =>
       (sourceUrl && tool.sourceUrl === sourceUrl) ||
-      normalize(tool.name) === normalize(name),
+      normalize(tool.name) === normalize(name) ||
+      compactName(tool.name) === compactName(name),
   );
 }
 
-function relationshipResolution(data: StackMapData, suggestion: Suggestion) {
+function relationshipResolution(
+  data: StackMapData,
+  suggestion: Suggestion,
+  relationshipTargets: Record<string, { fromId?: string; toId?: string }>,
+) {
   const fromType = textField(suggestion, "fromType", "project") as EntityType;
   const toType = textField(suggestion, "toType", "tool") as EntityType;
   const relationshipType = textField(
@@ -76,15 +90,53 @@ function relationshipResolution(data: StackMapData, suggestion: Suggestion) {
     fromType,
     textField(suggestion, "fromName"),
     textField(suggestion, "fromSourceUrl"),
+    relationshipTargets[suggestion.id]?.fromId,
   );
   const to = findEntityBySuggestion(
     data,
     toType,
     textField(suggestion, "toName"),
     textField(suggestion, "toSourceUrl"),
+    relationshipTargets[suggestion.id]?.toId,
   );
 
   return { fromType, toType, relationshipType, from, to };
+}
+
+function entityOptions(data: StackMapData, type: EntityType): EntityOption[] {
+  if (type === "project") {
+    return data.projects.map((project) => ({
+      type,
+      id: project.id,
+      name: project.name,
+    }));
+  }
+
+  return data.tools.map((tool) => ({
+    type,
+    id: tool.id,
+    name: tool.name,
+  }));
+}
+
+function defaultMergeTargetId(
+  suggestion: Suggestion,
+  matches: Array<{ id: string; name: string }>,
+  data: StackMapData,
+) {
+  if (matches[0]?.id) return matches[0].id;
+  const suggestedName = textField(suggestion, "name");
+  if (suggestion.entityType === "project") {
+    return data.projects.find((project) =>
+      compactName(suggestedName).includes(compactName(project.name)),
+    )?.id;
+  }
+  if (suggestion.entityType === "tool") {
+    return data.tools.find((tool) =>
+      compactName(suggestedName).includes(compactName(tool.name)),
+    )?.id;
+  }
+  return "";
 }
 
 function suggestionTitle(suggestion: Suggestion) {
@@ -120,6 +172,9 @@ export default function SuggestionsPage() {
   const [statusFilter, setStatusFilter] = useState<SuggestionStatus>("pending");
   const [typeFilter, setTypeFilter] = useState<SuggestionTypeFilter>("all");
   const [mergeTargets, setMergeTargets] = useState<Record<string, string>>({});
+  const [relationshipTargets, setRelationshipTargets] = useState<
+    Record<string, { fromId?: string; toId?: string }>
+  >({});
   const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({});
   const suggestions = data.suggestions.filter(
     (item) =>
@@ -141,7 +196,7 @@ export default function SuggestionsPage() {
   const matchesBySuggestionId = useMemo(() => {
     const matches: Record<string, Array<{ id: string; name: string }>> = {};
     data.suggestions.forEach((suggestion) => {
-      const name = normalize(textField(suggestion, "name"));
+      const name = textField(suggestion, "name");
       if (!name) {
         matches[suggestion.id] = [];
         return;
@@ -149,14 +204,24 @@ export default function SuggestionsPage() {
 
       if (suggestion.entityType === "project") {
         matches[suggestion.id] = data.projects
-          .filter((project) => normalize(project.name) === name)
+          .filter(
+            (project) =>
+              normalize(project.name) === normalize(name) ||
+              compactName(name).includes(compactName(project.name)) ||
+              compactName(project.name).includes(compactName(name)),
+          )
           .map((project) => ({ id: project.id, name: project.name }));
         return;
       }
 
       if (suggestion.entityType === "tool") {
         matches[suggestion.id] = data.tools
-          .filter((tool) => normalize(tool.name) === name)
+          .filter(
+            (tool) =>
+              normalize(tool.name) === normalize(name) ||
+              compactName(name).includes(compactName(tool.name)) ||
+              compactName(tool.name).includes(compactName(name)),
+          )
           .map((tool) => ({ id: tool.id, name: tool.name }));
         return;
       }
@@ -168,7 +233,7 @@ export default function SuggestionsPage() {
 
   const readyRelationshipSuggestions = suggestions.filter((suggestion) => {
     if (suggestion.entityType !== "relationship" || suggestion.status !== "pending") return false;
-    const { from, to } = relationshipResolution(data, suggestion);
+    const { from, to } = relationshipResolution(data, suggestion, relationshipTargets);
     return Boolean(from && to);
   });
 
@@ -215,6 +280,7 @@ export default function SuggestionsPage() {
       const { fromType, toType, relationshipType, from, to } = relationshipResolution(
         data,
         suggestion,
+        relationshipTargets,
       );
       if (!from || !to) return;
 
@@ -242,7 +308,9 @@ export default function SuggestionsPage() {
   }
 
   function mergeSuggestion(suggestion: Suggestion) {
-    const targetId = mergeTargets[suggestion.id] ?? matchesBySuggestionId[suggestion.id]?.[0]?.id;
+    const matches = matchesBySuggestionId[suggestion.id] ?? [];
+    const targetId =
+      mergeTargets[suggestion.id] ?? defaultMergeTargetId(suggestion, matches, data);
     if (!targetId) return;
 
     if (suggestion.entityType === "project") {
@@ -345,7 +413,7 @@ export default function SuggestionsPage() {
           const matches = matchesBySuggestionId[suggestion.id] ?? [];
           const resolvedRelationship =
             suggestion.entityType === "relationship"
-              ? relationshipResolution(data, suggestion)
+              ? relationshipResolution(data, suggestion, relationshipTargets)
               : null;
           const relationshipFrom = resolvedRelationship?.from ?? null;
           const relationshipTo = resolvedRelationship?.to ?? null;
@@ -357,7 +425,19 @@ export default function SuggestionsPage() {
           const canMerge =
             suggestion.status === "pending" &&
             ["project", "tool"].includes(suggestion.entityType) &&
-            matches.length > 0;
+            (suggestion.entityType === "project"
+              ? data.projects.length > 0
+              : data.tools.length > 0);
+          const mergeOptions =
+            suggestion.entityType === "project"
+              ? data.projects.map((project) => ({ id: project.id, name: project.name }))
+              : suggestion.entityType === "tool"
+                ? data.tools.map((tool) => ({ id: tool.id, name: tool.name }))
+                : [];
+          const fromType = textField(suggestion, "fromType", "project") as EntityType;
+          const toType = textField(suggestion, "toType", "tool") as EntityType;
+          const fromOptions = entityOptions(data, fromType);
+          const toOptions = entityOptions(data, toType);
 
           return (
           <article key={suggestion.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -482,26 +562,88 @@ export default function SuggestionsPage() {
                 ))}
               </div>
             ) : null}
-            {matches.length > 0 && suggestion.status === "pending" ? (
-              <label className="mt-3 grid gap-1 text-sm font-medium text-slate-700">
-                Merge target
-                <select
-                  value={mergeTargets[suggestion.id] ?? matches[0]?.id ?? ""}
-                  onChange={(event) =>
-                    setMergeTargets((current) => ({
-                      ...current,
-                      [suggestion.id]: event.target.value,
-                    }))
-                  }
-                  className="rounded-md border border-slate-300 px-3 py-2 font-normal"
-                >
-                  {matches.map((match) => (
-                    <option key={match.id} value={match.id}>
-                      {match.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            {canMerge ? (
+              <div className="mt-3 grid gap-2 rounded-md border border-cyan-100 bg-cyan-50 p-3">
+                <label className="grid gap-1 text-sm font-medium text-cyan-950">
+                  Merge into existing {suggestion.entityType}
+                  <select
+                    value={
+                      mergeTargets[suggestion.id] ??
+                      defaultMergeTargetId(suggestion, matches, data) ??
+                      mergeOptions[0]?.id ??
+                      ""
+                    }
+                    onChange={(event) =>
+                      setMergeTargets((current) => ({
+                        ...current,
+                        [suggestion.id]: event.target.value,
+                      }))
+                    }
+                    className="rounded-md border border-cyan-200 bg-white px-3 py-2 font-normal text-slate-800"
+                  >
+                    {mergeOptions.map((match) => (
+                      <option key={match.id} value={match.id}>
+                        {match.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {matches.length === 0 ? (
+                  <p className="text-xs text-cyan-800">
+                    No exact match was found, but you can still choose the correct existing record.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {suggestion.entityType === "relationship" && suggestion.status === "pending" ? (
+              <div className="mt-3 grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 md:grid-cols-2">
+                <label className="grid gap-1 text-sm font-medium text-slate-700">
+                  From record
+                  <select
+                    value={relationshipFrom?.id ?? relationshipTargets[suggestion.id]?.fromId ?? ""}
+                    onChange={(event) =>
+                      setRelationshipTargets((current) => ({
+                        ...current,
+                        [suggestion.id]: {
+                          ...current[suggestion.id],
+                          fromId: event.target.value,
+                        },
+                      }))
+                    }
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 font-normal"
+                  >
+                    <option value="">Choose {fromType}</option>
+                    {fromOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-sm font-medium text-slate-700">
+                  To record
+                  <select
+                    value={relationshipTo?.id ?? relationshipTargets[suggestion.id]?.toId ?? ""}
+                    onChange={(event) =>
+                      setRelationshipTargets((current) => ({
+                        ...current,
+                        [suggestion.id]: {
+                          ...current[suggestion.id],
+                          toId: event.target.value,
+                        },
+                      }))
+                    }
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 font-normal"
+                  >
+                    <option value="">Choose {toType}</option>
+                    {toOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             ) : null}
           </article>
           );

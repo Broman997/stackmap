@@ -286,6 +286,7 @@ export const seedData: StackMapData = {
     },
   ],
   suggestions: [],
+  duplicateDecisions: [],
   integrationPlans: [
     {
       id: "integration-github",

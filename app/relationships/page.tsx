@@ -25,10 +25,22 @@ export default function RelationshipsPage() {
   }, []);
 
   const columns: TableColumn<Relationship>[] = [
-    { header: "From", cell: (item) => getEntityName(data, item.fromType, item.fromId) },
-    { header: "Relationship", cell: (item) => item.relationshipType },
-    { header: "To", cell: (item) => getEntityName(data, item.toType, item.toId) },
-    { header: "Notes", cell: (item) => item.notes || "No notes" },
+    {
+      header: "From",
+      cell: (item) => getEntityName(data, item.fromType, item.fromId),
+      sortValue: (item) => getEntityName(data, item.fromType, item.fromId),
+    },
+    {
+      header: "Relationship",
+      cell: (item) => item.relationshipType,
+      sortValue: (item) => item.relationshipType,
+    },
+    {
+      header: "To",
+      cell: (item) => getEntityName(data, item.toType, item.toId),
+      sortValue: (item) => getEntityName(data, item.toType, item.toId),
+    },
+    { header: "Notes", cell: (item) => item.notes || "No notes", sortValue: (item) => item.notes },
   ];
 
   return (
