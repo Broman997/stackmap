@@ -4,8 +4,11 @@ import { GitMerge, Plus, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStackMapData } from "@/lib/storage";
 import type {
+  EntityType,
   ProjectType,
+  RelationshipType,
   SourceMetadata,
+  StackMapData,
   Suggestion,
   SuggestionStatus,
   ToolCategory,
@@ -36,11 +39,33 @@ function sourceMetadata(suggestion: Suggestion): SourceMetadata {
   };
 }
 
+function findEntityBySuggestion(
+  data: StackMapData,
+  type: EntityType,
+  name: string,
+  sourceUrl: string,
+) {
+  if (type === "project") {
+    return data.projects.find(
+      (project) =>
+        (sourceUrl && project.sourceUrl === sourceUrl) ||
+        normalize(project.name) === normalize(name),
+    );
+  }
+
+  return data.tools.find(
+    (tool) =>
+      (sourceUrl && tool.sourceUrl === sourceUrl) ||
+      normalize(tool.name) === normalize(name),
+  );
+}
+
 export default function SuggestionsPage() {
   const {
     data,
     addProject,
     addTool,
+    addRelationship,
     mergeProjectSuggestion,
     mergeToolSuggestion,
     updateSuggestionStatus,
@@ -113,6 +138,51 @@ export default function SuggestionsPage() {
         lastReviewedAt: "",
         ...sourceMetadata(suggestion),
       });
+      updateSuggestionStatus(suggestion.id, "accepted");
+      return;
+    }
+
+    if (suggestion.entityType === "relationship") {
+      const fromType = textField(suggestion, "fromType", "project") as EntityType;
+      const toType = textField(suggestion, "toType", "tool") as EntityType;
+      const from = findEntityBySuggestion(
+        data,
+        fromType,
+        textField(suggestion, "fromName"),
+        textField(suggestion, "fromSourceUrl"),
+      );
+      const to = findEntityBySuggestion(
+        data,
+        toType,
+        textField(suggestion, "toName"),
+        textField(suggestion, "toSourceUrl"),
+      );
+      if (!from || !to) return;
+
+      const relationshipType = textField(
+        suggestion,
+        "relationshipType",
+        "uses",
+      ) as RelationshipType;
+      const exists = data.relationships.some(
+        (relationship) =>
+          relationship.fromType === fromType &&
+          relationship.fromId === from.id &&
+          relationship.toType === toType &&
+          relationship.toId === to.id &&
+          relationship.relationshipType === relationshipType,
+      );
+
+      if (!exists) {
+        addRelationship({
+          fromType,
+          fromId: from.id,
+          toType,
+          toId: to.id,
+          relationshipType,
+          notes: suggestion.notes || textField(suggestion, "notes"),
+        });
+      }
       updateSuggestionStatus(suggestion.id, "accepted");
     }
   }
@@ -188,6 +258,30 @@ export default function SuggestionsPage() {
       <section className="space-y-3">
         {suggestions.map((suggestion) => {
           const matches = matchesBySuggestionId[suggestion.id] ?? [];
+          const fromType = textField(suggestion, "fromType", "project") as EntityType;
+          const toType = textField(suggestion, "toType", "tool") as EntityType;
+          const relationshipFrom =
+            suggestion.entityType === "relationship"
+              ? findEntityBySuggestion(
+                  data,
+                  fromType,
+                  textField(suggestion, "fromName"),
+                  textField(suggestion, "fromSourceUrl"),
+                )
+              : null;
+          const relationshipTo =
+            suggestion.entityType === "relationship"
+              ? findEntityBySuggestion(
+                  data,
+                  toType,
+                  textField(suggestion, "toName"),
+                  textField(suggestion, "toSourceUrl"),
+                )
+              : null;
+          const canAcceptRelationship =
+            suggestion.status === "pending" &&
+            suggestion.entityType === "relationship" &&
+            Boolean(relationshipFrom && relationshipTo);
           const canMerge =
             suggestion.status === "pending" &&
             ["project", "tool"].includes(suggestion.entityType) &&
@@ -217,15 +311,29 @@ export default function SuggestionsPage() {
                     Possible match: {matches.map((match) => match.name).join(", ")}
                   </p>
                 ) : null}
+                {suggestion.entityType === "relationship" ? (
+                  <p className="mt-2 text-sm font-medium text-slate-600">
+                    {relationshipFrom && relationshipTo
+                      ? `Ready: ${relationshipFrom.name} -> ${relationshipTo.name}`
+                      : "Needs matching project and tool records before it can be accepted."}
+                  </p>
+                ) : null}
               </div>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => acceptSuggestion(suggestion)}
-                  disabled={suggestion.status !== "pending" || !["project", "tool"].includes(suggestion.entityType)}
+                  disabled={
+                    suggestion.status !== "pending" ||
+                    (!["project", "tool"].includes(suggestion.entityType) && !canAcceptRelationship)
+                  }
                   className="rounded-md border border-emerald-200 p-2 text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                   aria-label="Accept as new"
-                  title="Accept as new"
+                  title={
+                    suggestion.entityType === "relationship"
+                      ? "Accept relationship"
+                      : "Accept as new"
+                  }
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
                 </button>
