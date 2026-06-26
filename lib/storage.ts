@@ -101,6 +101,15 @@ export function useStackMapData() {
           ),
         }));
       },
+      mergeProjectSuggestion(id: string, updates: Partial<Omit<Project, "id" | "createdAt">>) {
+        const now = timestamp();
+        setData((current) => ({
+          ...current,
+          projects: current.projects.map((item) =>
+            item.id === id ? { ...item, ...updates, updatedAt: now } : item,
+          ),
+        }));
+      },
       deleteProject(id: string) {
         setData((current) => ({
           ...current,
@@ -137,6 +146,15 @@ export function useStackMapData() {
           ...current,
           tools: current.tools.map((item) =>
             item.id === id ? { ...item, ...tool, updatedAt: now } : item,
+          ),
+        }));
+      },
+      mergeToolSuggestion(id: string, updates: Partial<Omit<Tool, "id" | "createdAt">>) {
+        const now = timestamp();
+        setData((current) => ({
+          ...current,
+          tools: current.tools.map((item) =>
+            item.id === id ? { ...item, ...updates, updatedAt: now } : item,
           ),
         }));
       },

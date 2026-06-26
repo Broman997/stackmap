@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { GitMerge, Plus, Trash2, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useStackMapData } from "@/lib/storage";
 import type { ProjectType, Suggestion, SuggestionStatus, ToolCategory } from "@/lib/types";
 
@@ -15,21 +15,55 @@ function numberField(suggestion: Suggestion, key: string, fallback = 0) {
   return typeof value === "number" ? value : fallback;
 }
 
+function normalize(value: string) {
+  return value.trim().toLowerCase();
+}
+
 export default function SuggestionsPage() {
   const {
     data,
     addProject,
     addTool,
+    mergeProjectSuggestion,
+    mergeToolSuggestion,
     updateSuggestionStatus,
     deleteSuggestion,
   } = useStackMapData();
   const [statusFilter, setStatusFilter] = useState<SuggestionStatus>("pending");
+  const [mergeTargets, setMergeTargets] = useState<Record<string, string>>({});
   const suggestions = data.suggestions.filter((item) => item.status === statusFilter);
   const counts = {
     pending: data.suggestions.filter((item) => item.status === "pending").length,
     accepted: data.suggestions.filter((item) => item.status === "accepted").length,
     dismissed: data.suggestions.filter((item) => item.status === "dismissed").length,
   };
+  const matchesBySuggestionId = useMemo(() => {
+    const matches: Record<string, Array<{ id: string; name: string }>> = {};
+    data.suggestions.forEach((suggestion) => {
+      const name = normalize(textField(suggestion, "name"));
+      if (!name) {
+        matches[suggestion.id] = [];
+        return;
+      }
+
+      if (suggestion.entityType === "project") {
+        matches[suggestion.id] = data.projects
+          .filter((project) => normalize(project.name) === name)
+          .map((project) => ({ id: project.id, name: project.name }));
+        return;
+      }
+
+      if (suggestion.entityType === "tool") {
+        matches[suggestion.id] = data.tools
+          .filter((tool) => normalize(tool.name) === name)
+          .map((tool) => ({ id: tool.id, name: tool.name }));
+        return;
+      }
+
+      matches[suggestion.id] = [];
+    });
+    return matches;
+  }, [data.projects, data.suggestions, data.tools]);
 
   function acceptSuggestion(suggestion: Suggestion) {
     if (suggestion.entityType === "project") {
@@ -64,6 +98,46 @@ export default function SuggestionsPage() {
     }
   }
 
+  function mergeSuggestion(suggestion: Suggestion) {
+    const targetId = mergeTargets[suggestion.id] ?? matchesBySuggestionId[suggestion.id]?.[0]?.id;
+    if (!targetId) return;
+
+    if (suggestion.entityType === "project") {
+      const current = data.projects.find((project) => project.id === targetId);
+      if (!current) return;
+      const suggestedNotes = suggestion.notes || textField(suggestion, "notes");
+      mergeProjectSuggestion(targetId, {
+        type: textField(suggestion, "type", current.type) as ProjectType,
+        status: current.status,
+        notes: suggestedNotes
+          ? [current.notes, suggestedNotes].filter(Boolean).join("\n")
+          : current.notes,
+      });
+      updateSuggestionStatus(suggestion.id, "accepted");
+      return;
+    }
+
+    if (suggestion.entityType === "tool") {
+      const current = data.tools.find((tool) => tool.id === targetId);
+      if (!current) return;
+      const suggestedNotes = suggestion.notes || textField(suggestion, "notes");
+      mergeToolSuggestion(targetId, {
+        category: textField(suggestion, "category", current.category) as ToolCategory,
+        websiteUrl: current.websiteUrl || textField(suggestion, "websiteUrl"),
+        loginUrl: current.loginUrl || textField(suggestion, "loginUrl"),
+        accountEmail: current.accountEmail || textField(suggestion, "accountEmail"),
+        billingCycle: current.billingCycle || textField(suggestion, "billingCycle"),
+        renewalDate: current.renewalDate || textField(suggestion, "renewalDate"),
+        monthlyCost: current.monthlyCost || numberField(suggestion, "monthlyCost"),
+        annualCost: current.annualCost || numberField(suggestion, "annualCost"),
+        notes: suggestedNotes
+          ? [current.notes, suggestedNotes].filter(Boolean).join("\n")
+          : current.notes,
+      });
+      updateSuggestionStatus(suggestion.id, "accepted");
+    }
+  }
+
   return (
     <div className="space-y-5">
       <header>
@@ -91,7 +165,14 @@ export default function SuggestionsPage() {
       </section>
 
       <section className="space-y-3">
-        {suggestions.map((suggestion) => (
+        {suggestions.map((suggestion) => {
+          const matches = matchesBySuggestionId[suggestion.id] ?? [];
+          const canMerge =
+            suggestion.status === "pending" &&
+            ["project", "tool"].includes(suggestion.entityType) &&
+            matches.length > 0;
+
+          return (
           <article key={suggestion.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -110,6 +191,11 @@ export default function SuggestionsPage() {
                 <p className="mt-1 text-sm text-slate-500">
                   Confidence: {Math.round(suggestion.confidence * 100)}%
                 </p>
+                {matches.length > 0 ? (
+                  <p className="mt-2 text-sm font-medium text-amber-700">
+                    Possible match: {matches.map((match) => match.name).join(", ")}
+                  </p>
+                ) : null}
               </div>
               <div className="flex gap-2">
                 <button
@@ -117,10 +203,20 @@ export default function SuggestionsPage() {
                   onClick={() => acceptSuggestion(suggestion)}
                   disabled={suggestion.status !== "pending" || !["project", "tool"].includes(suggestion.entityType)}
                   className="rounded-md border border-emerald-200 p-2 text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
-                  aria-label="Accept suggestion"
-                  title="Accept suggestion"
+                  aria-label="Accept as new"
+                  title="Accept as new"
                 >
-                  <Check className="h-4 w-4" aria-hidden="true" />
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mergeSuggestion(suggestion)}
+                  disabled={!canMerge}
+                  className="rounded-md border border-cyan-200 p-2 text-cyan-700 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                  aria-label="Merge into existing"
+                  title="Merge into existing"
+                >
+                  <GitMerge className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
@@ -151,8 +247,30 @@ export default function SuggestionsPage() {
                 </p>
               ))}
             </div>
+            {matches.length > 0 && suggestion.status === "pending" ? (
+              <label className="mt-3 grid gap-1 text-sm font-medium text-slate-700">
+                Merge target
+                <select
+                  value={mergeTargets[suggestion.id] ?? matches[0]?.id ?? ""}
+                  onChange={(event) =>
+                    setMergeTargets((current) => ({
+                      ...current,
+                      [suggestion.id]: event.target.value,
+                    }))
+                  }
+                  className="rounded-md border border-slate-300 px-3 py-2 font-normal"
+                >
+                  {matches.map((match) => (
+                    <option key={match.id} value={match.id}>
+                      {match.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </article>
-        ))}
+          );
+        })}
         {suggestions.length === 0 ? (
           <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
             <p className="font-medium text-slate-900">No {statusFilter} suggestions.</p>
