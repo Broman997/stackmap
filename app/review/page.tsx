@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { useStackMapData } from "@/lib/storage";
-import { formatDate, getProjectReviewItems, getToolReviewItems } from "@/lib/utils";
+import {
+  formatDate,
+  getDuplicateReviewGroups,
+  getProjectReviewItems,
+  getToolReviewItems,
+} from "@/lib/utils";
 
 export default function ReviewPage() {
   const { data, markProjectReviewed, markToolReviewed } = useStackMapData();
@@ -28,6 +33,7 @@ export default function ReviewPage() {
     }))
     .filter((item) => item.items.length > 0);
   const reviews = [...projectReviews, ...toolReviews];
+  const duplicateReviews = getDuplicateReviewGroups(data);
 
   return (
     <div className="space-y-5">
@@ -38,7 +44,7 @@ export default function ReviewPage() {
         </p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-4">
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-sm font-medium text-slate-500">Total Review Items</p>
           <p className="mt-2 text-3xl font-semibold text-slate-950">
@@ -53,6 +59,48 @@ export default function ReviewPage() {
           <p className="text-sm font-medium text-slate-500">Tools</p>
           <p className="mt-2 text-3xl font-semibold text-slate-950">{toolReviews.length}</p>
         </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-medium text-slate-500">Possible Duplicates</p>
+          <p className="mt-2 text-3xl font-semibold text-slate-950">{duplicateReviews.length}</p>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-950">Possible Duplicates</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Review-only matches from names and source URLs. Nothing is merged or deleted here.
+          </p>
+        </div>
+        {duplicateReviews.map((group) => (
+          <article key={group.id} className="rounded-lg border border-amber-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold uppercase text-amber-800">
+                {group.kind}
+              </span>
+              <p className="text-sm font-medium text-slate-700">{group.reason}</p>
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {group.records.map((record) => (
+                <div key={record.id} className="rounded-md bg-slate-50 p-3">
+                  <Link href={record.href} className="font-semibold text-slate-950 hover:underline">
+                    {record.name}
+                  </Link>
+                  {record.sourceUrl ? (
+                    <p className="mt-1 break-all text-xs text-slate-500">{record.sourceUrl}</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-slate-500">No source URL</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+        {duplicateReviews.length === 0 ? (
+          <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+            No likely duplicate records found.
+          </div>
+        ) : null}
       </section>
 
       <section className="space-y-3">

@@ -1,5 +1,17 @@
 import type { Project, StackMapData, Tool } from "./types";
 
+export type DuplicateReviewGroup = {
+  id: string;
+  kind: "Project" | "Tool";
+  reason: string;
+  records: Array<{
+    id: string;
+    name: string;
+    href: string;
+    sourceUrl?: string;
+  }>;
+};
+
 export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -87,4 +99,121 @@ export function getToolReviewItems(tool: Tool, data: StackMapData) {
   if (tool.status === "unused" || tool.status === "unknown") items.push("Review tool status");
   if (linkedRelationships.length === 0) items.push("No relationships");
   return items;
+}
+
+function normalizeName(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function compactName(value: string) {
+  let compact = value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const suffixes = ["application", "website", "repository", "backend", "site", "repo", "app", "api"];
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    suffixes.forEach((suffix) => {
+      if (compact.endsWith(suffix) && compact.length > suffix.length + 4) {
+        compact = compact.slice(0, -suffix.length);
+        changed = true;
+      }
+    });
+  }
+
+  return compact;
+}
+
+function nameTokens(value: string) {
+  const ignored = new Set(["app", "site", "website", "repo", "repository", "api", "backend"]);
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3 && !ignored.has(token));
+}
+
+function duplicateReason(
+  first: { name: string; sourceName?: string; sourceUrl?: string },
+  second: { name: string; sourceName?: string; sourceUrl?: string },
+) {
+  if (first.sourceUrl && second.sourceUrl && first.sourceUrl === second.sourceUrl) {
+    return "Same source URL";
+  }
+
+  if (normalizeName(first.name) === normalizeName(second.name)) {
+    return "Same name";
+  }
+
+  if (
+    first.sourceName &&
+    second.sourceName &&
+    normalizeName(first.sourceName) === normalizeName(second.sourceName)
+  ) {
+    return "Same source name";
+  }
+
+  const firstCompact = compactName(first.name);
+  const secondCompact = compactName(second.name);
+  if (firstCompact.length >= 5 && firstCompact === secondCompact) {
+    return "Equivalent compact name";
+  }
+
+  const shorter = firstCompact.length < secondCompact.length ? firstCompact : secondCompact;
+  const longer = firstCompact.length < secondCompact.length ? secondCompact : firstCompact;
+  if (shorter.length >= 8 && longer.startsWith(shorter)) {
+    return "Similar compact name";
+  }
+
+  const firstTokens = new Set(nameTokens(first.name));
+  const secondTokens = new Set(nameTokens(second.name));
+  const overlap = [...firstTokens].filter((token) => secondTokens.has(token)).length;
+  const smallestTokenSet = Math.min(firstTokens.size, secondTokens.size);
+  if (smallestTokenSet >= 2 && overlap / smallestTokenSet >= 0.67) {
+    return "Similar name tokens";
+  }
+
+  return "";
+}
+
+function duplicatePairs<T extends { id: string; name: string; sourceName?: string; sourceUrl?: string }>(
+  records: T[],
+  kind: "Project" | "Tool",
+  hrefFor: (record: T) => string,
+) {
+  const groups: DuplicateReviewGroup[] = [];
+
+  records.forEach((first, firstIndex) => {
+    records.slice(firstIndex + 1).forEach((second) => {
+      const reason = duplicateReason(first, second);
+      if (!reason) return;
+
+      groups.push({
+        id: `${kind.toLowerCase()}-${first.id}-${second.id}`,
+        kind,
+        reason,
+        records: [
+          {
+            id: first.id,
+            name: first.name,
+            href: hrefFor(first),
+            sourceUrl: first.sourceUrl,
+          },
+          {
+            id: second.id,
+            name: second.name,
+            href: hrefFor(second),
+            sourceUrl: second.sourceUrl,
+          },
+        ],
+      });
+    });
+  });
+
+  return groups;
+}
+
+export function getDuplicateReviewGroups(data: StackMapData) {
+  return [
+    ...duplicatePairs(data.projects, "Project", (project) => `/projects/${project.id}`),
+    ...duplicatePairs(data.tools, "Tool", (tool) => `/tools/${tool.id}`),
+  ];
 }
