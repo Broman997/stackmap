@@ -33,6 +33,7 @@ const filterOptions: Array<{ value: MapFilter; label: string }> = [
 
 export function StackMapFlow({ data }: { data: StackMapData }) {
   const [selected, setSelected] = useState<MapNodeData | null>(null);
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [filter, setFilter] = useState<MapFilter>("all");
 
   const connectedIds = useMemo(() => {
@@ -98,7 +99,7 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
     return [...projectNodes, ...toolNodes];
   }, [data]);
 
-  const nodes = useMemo(() => {
+  const filteredNodes = useMemo(() => {
     return allNodes.filter((node) => {
       if (filter === "projects") return node.data.kind === "Project";
       if (filter === "tools") return node.data.kind === "Tool";
@@ -107,6 +108,26 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
       return true;
     });
   }, [allNodes, connectedIds, filter]);
+
+  const focusedNodeIds = useMemo(() => {
+    if (!focusedNodeId) return null;
+
+    const ids = new Set([focusedNodeId]);
+    data.relationships.forEach((relationship) => {
+      const source = `${relationship.fromType}:${relationship.fromId}`;
+      const target = `${relationship.toType}:${relationship.toId}`;
+
+      if (source === focusedNodeId) ids.add(target);
+      if (target === focusedNodeId) ids.add(source);
+    });
+
+    return ids;
+  }, [data.relationships, focusedNodeId]);
+
+  const nodes = useMemo(() => {
+    if (!focusedNodeIds) return filteredNodes;
+    return filteredNodes.filter((node) => focusedNodeIds.has(node.id));
+  }, [filteredNodes, focusedNodeIds]);
 
   const visibleNodeIds = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes]);
 
@@ -123,11 +144,28 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
           labelStyle: { fill: "#334155", fontWeight: 600, fontSize: 12 },
           labelBgStyle: { fill: "#ffffff", fillOpacity: 0.9 },
         }))
-        .filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)),
-    [data.relationships, visibleNodeIds],
+        .filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target))
+        .filter((edge) =>
+          focusedNodeId ? edge.source === focusedNodeId || edge.target === focusedNodeId : true,
+        ),
+    [data.relationships, focusedNodeId, visibleNodeIds],
   );
 
   const reviewNodeCount = allNodes.filter((node) => node.data.reviewCount > 0).length;
+  const focusedLabel = focusedNodeId
+    ? allNodes.find((node) => node.id === focusedNodeId)?.data.label
+    : "";
+
+  function changeFilter(nextFilter: MapFilter) {
+    setFilter(nextFilter);
+    setFocusedNodeId(null);
+    setSelected(null);
+  }
+
+  function clearFocus() {
+    setFocusedNodeId(null);
+    setSelected(null);
+  }
 
   return (
     <div className="space-y-4">
@@ -152,7 +190,7 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setFilter(option.value)}
+                onClick={() => changeFilter(option.value)}
                 className={cn(
                   "rounded-md border px-3 py-2 text-sm font-medium",
                   filter === option.value
@@ -163,8 +201,22 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
                 {option.label}
               </button>
             ))}
+            {focusedNodeId ? (
+              <button
+                type="button"
+                onClick={clearFocus}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Show all
+              </button>
+            ) : null}
           </div>
         </div>
+        {focusedNodeId ? (
+          <p className="mt-4 rounded-md bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-800">
+            Focused on {focusedLabel}. Showing direct relationships only.
+          </p>
+        ) : null}
         <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-4">
           <p>{nodes.length} visible nodes</p>
           <p>{edges.length} visible edges</p>
@@ -176,10 +228,14 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <ReactFlow
+            key={`${filter}-${focusedNodeId ?? "all"}`}
             nodes={nodes}
             edges={edges}
             fitView
-            onNodeClick={(_, node) => setSelected(node.data)}
+            onNodeClick={(_, node) => {
+              setSelected(node.data);
+              setFocusedNodeId(node.id);
+            }}
             proOptions={{ hideAttribution: true }}
           >
             <Background />
