@@ -82,6 +82,26 @@ export default function ToolDetailPage() {
             <div className="flex justify-between gap-4"><dt className="text-slate-500">Paid</dt><dd className="font-medium text-slate-900">{tool.paidStatus}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-slate-500">Renewal</dt><dd className="font-medium text-slate-900">{formatDate(tool.renewalDate)}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-slate-500">Last reviewed</dt><dd className="font-medium text-slate-900">{formatDate(tool.lastReviewedAt ?? "")}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-slate-500">Source</dt><dd className="font-medium text-slate-900">{tool.source ?? "manual"}</dd></div>
+            {tool.primaryLanguage ? (
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Language</dt><dd className="font-medium text-slate-900">{tool.primaryLanguage}</dd></div>
+            ) : null}
+            {tool.sourceVisibility ? (
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Visibility</dt><dd className="font-medium text-slate-900">{tool.sourceVisibility}</dd></div>
+            ) : null}
+            {tool.lastDetectedAt ? (
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Last detected</dt><dd className="font-medium text-slate-900">{formatDate(tool.lastDetectedAt)}</dd></div>
+            ) : null}
+            {tool.sourceUrl ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Source URL</dt>
+                <dd className="min-w-0 text-right font-medium text-slate-900">
+                  <a href={tool.sourceUrl} target="_blank" rel="noreferrer" className="break-all text-cyan-700 hover:text-cyan-900">
+                    {tool.sourceName || tool.sourceUrl}
+                  </a>
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

@@ -3,7 +3,13 @@
 import { GitMerge, Plus, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStackMapData } from "@/lib/storage";
-import type { ProjectType, Suggestion, SuggestionStatus, ToolCategory } from "@/lib/types";
+import type {
+  ProjectType,
+  SourceMetadata,
+  Suggestion,
+  SuggestionStatus,
+  ToolCategory,
+} from "@/lib/types";
 
 function textField(suggestion: Suggestion, key: string, fallback = "") {
   const value = suggestion.detectedFields[key];
@@ -17,6 +23,17 @@ function numberField(suggestion: Suggestion, key: string, fallback = 0) {
 
 function normalize(value: string) {
   return value.trim().toLowerCase();
+}
+
+function sourceMetadata(suggestion: Suggestion): SourceMetadata {
+  return {
+    source: suggestion.source,
+    sourceName: textField(suggestion, "sourceName", textField(suggestion, "name")),
+    sourceUrl: textField(suggestion, "sourceUrl", textField(suggestion, "websiteUrl")),
+    sourceVisibility: textField(suggestion, "sourceVisibility"),
+    primaryLanguage: textField(suggestion, "primaryLanguage"),
+    lastDetectedAt: textField(suggestion, "lastDetectedAt", suggestion.createdAt),
+  };
 }
 
 export default function SuggestionsPage() {
@@ -73,6 +90,7 @@ export default function SuggestionsPage() {
         status: "active",
         notes: suggestion.notes || textField(suggestion, "notes"),
         lastReviewedAt: "",
+        ...sourceMetadata(suggestion),
       });
       updateSuggestionStatus(suggestion.id, "accepted");
       return;
@@ -93,6 +111,7 @@ export default function SuggestionsPage() {
         status: "unknown",
         notes: suggestion.notes || textField(suggestion, "notes"),
         lastReviewedAt: "",
+        ...sourceMetadata(suggestion),
       });
       updateSuggestionStatus(suggestion.id, "accepted");
     }
@@ -112,6 +131,7 @@ export default function SuggestionsPage() {
         notes: suggestedNotes
           ? [current.notes, suggestedNotes].filter(Boolean).join("\n")
           : current.notes,
+        ...sourceMetadata(suggestion),
       });
       updateSuggestionStatus(suggestion.id, "accepted");
       return;
@@ -133,6 +153,7 @@ export default function SuggestionsPage() {
         notes: suggestedNotes
           ? [current.notes, suggestedNotes].filter(Boolean).join("\n")
           : current.notes,
+        ...sourceMetadata(suggestion),
       });
       updateSuggestionStatus(suggestion.id, "accepted");
     }

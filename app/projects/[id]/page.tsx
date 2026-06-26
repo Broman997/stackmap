@@ -74,6 +74,26 @@ export default function ProjectDetailPage() {
             <div className="flex justify-between gap-4"><dt className="text-slate-500">Last reviewed</dt><dd className="font-medium text-slate-900">{formatDate(project.lastReviewedAt ?? "")}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-slate-500">Created</dt><dd className="font-medium text-slate-900">{new Date(project.createdAt).toLocaleDateString()}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-slate-500">Updated</dt><dd className="font-medium text-slate-900">{new Date(project.updatedAt).toLocaleDateString()}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-slate-500">Source</dt><dd className="font-medium text-slate-900">{project.source ?? "manual"}</dd></div>
+            {project.primaryLanguage ? (
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Language</dt><dd className="font-medium text-slate-900">{project.primaryLanguage}</dd></div>
+            ) : null}
+            {project.sourceVisibility ? (
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Visibility</dt><dd className="font-medium text-slate-900">{project.sourceVisibility}</dd></div>
+            ) : null}
+            {project.lastDetectedAt ? (
+              <div className="flex justify-between gap-4"><dt className="text-slate-500">Last detected</dt><dd className="font-medium text-slate-900">{formatDate(project.lastDetectedAt)}</dd></div>
+            ) : null}
+            {project.sourceUrl ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Source URL</dt>
+                <dd className="min-w-0 text-right font-medium text-slate-900">
+                  <a href={project.sourceUrl} target="_blank" rel="noreferrer" className="break-all text-cyan-700 hover:text-cyan-900">
+                    {project.sourceName || project.sourceUrl}
+                  </a>
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

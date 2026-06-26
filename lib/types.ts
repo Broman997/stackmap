@@ -52,8 +52,18 @@ export type SuggestionFieldValue = string | number | boolean | null;
 export type IntegrationSource = Exclude<SuggestionSource, "manual_import">;
 export type IntegrationStatus = "planned" | "ready_later" | "disabled";
 export type IntegrationAccessMode = "read_only";
+export type RecordSource = "manual" | "mock" | SuggestionSource;
 
-export type Project = {
+export type SourceMetadata = {
+  source?: RecordSource;
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceVisibility?: string;
+  primaryLanguage?: string;
+  lastDetectedAt?: string;
+};
+
+export type Project = SourceMetadata & {
   id: string;
   name: string;
   type: ProjectType;
@@ -64,7 +74,7 @@ export type Project = {
   updatedAt: string;
 };
 
-export type Tool = {
+export type Tool = SourceMetadata & {
   id: string;
   name: string;
   category: ToolCategory;
