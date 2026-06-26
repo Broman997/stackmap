@@ -32,6 +32,9 @@ yarn-error.log*
 dev-server.log
 dev-server.err.log
 
+# local generated suggestion exports
+/generated/
+
 # env files (can opt-in for committing if needed)
 .env*
 

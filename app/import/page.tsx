@@ -1,9 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ClipboardList, Wand2 } from "lucide-react";
-import { useMemo, useState } from "react";
-import type { ProjectType, ToolCategory } from "@/lib/types";
+import { ClipboardList, FileJson, Wand2 } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import type {
+  ProjectType,
+  Suggestion,
+  SuggestionFieldValue,
+  ToolCategory,
+} from "@/lib/types";
 import { useStackMapData } from "@/lib/storage";
 
 type SuggestionKind = "project" | "tool";
@@ -14,6 +19,17 @@ type ParsedSuggestion = {
   classification: ProjectType | ToolCategory;
   notes: string;
   duplicate: boolean;
+};
+
+type SuggestionImportFile = {
+  app?: string;
+  kind?: string;
+  source?: string;
+  suggestions?: Array<
+    Omit<Suggestion, "id" | "createdAt" | "updatedAt"> & {
+      detectedFields: Record<string, SuggestionFieldValue>;
+    }
+  >;
 };
 
 function normalize(value: string) {
@@ -122,6 +138,7 @@ export default function ImportPage() {
   const [sourceText, setSourceText] = useState("");
   const [lastParsed, setLastParsed] = useState<ParsedSuggestion[]>([]);
   const [message, setMessage] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const projectNames = useMemo(
     () => new Set(data.projects.map((project) => normalize(project.name))),
@@ -164,6 +181,37 @@ export default function ImportPage() {
     setMessage(
       `Saved ${parsed.length} suggestion${parsed.length === 1 ? "" : "s"} to the local suggestion queue.`,
     );
+  }
+
+  async function importSuggestionFile(file: File) {
+    try {
+      const parsed = JSON.parse(await file.text()) as SuggestionImportFile;
+      if (
+        parsed.app !== "StackMap" ||
+        parsed.kind !== "suggestion-import" ||
+        !Array.isArray(parsed.suggestions)
+      ) {
+        throw new Error("Choose a StackMap suggestion-import JSON file.");
+      }
+
+      parsed.suggestions.forEach((suggestion) => {
+        addSuggestion({
+          source: suggestion.source,
+          entityType: suggestion.entityType,
+          status: suggestion.status,
+          confidence: suggestion.confidence,
+          detectedFields: suggestion.detectedFields,
+          notes: suggestion.notes,
+        });
+      });
+      setMessage(
+        `Imported ${parsed.suggestions.length} suggestion${parsed.suggestions.length === 1 ? "" : "s"} from ${file.name}.`,
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Suggestion import failed.");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   return (
@@ -216,6 +264,28 @@ export default function ImportPage() {
             Clear
           </button>
         </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-950">Import Suggestion JSON</h2>
+        <p className="mt-2 text-sm text-slate-600">
+          Use this for generated files like <span className="font-mono">generated/github-suggestions.json</span>.
+          Imported rows still go to Suggestions for manual approval.
+        </p>
+        <label className="mt-4 flex max-w-xl cursor-pointer items-center gap-3 rounded-md border border-dashed border-slate-300 px-4 py-4 text-sm text-slate-600 hover:bg-slate-50">
+          <FileJson className="h-5 w-5 text-slate-400" aria-hidden="true" />
+          <span>Choose StackMap suggestion JSON</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void importSuggestionFile(file);
+            }}
+          />
+        </label>
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white shadow-sm">

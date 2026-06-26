@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "sync:github": "node scripts/sync-github.mjs",
     "lint": "eslint"
   },
   "dependencies": {
