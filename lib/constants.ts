@@ -11,6 +11,8 @@ import type {
 } from "./types";
 
 export const STORAGE_KEY = "stackmap.mvp.data.v1";
+export const STORAGE_RECOVERY_KEY = "stackmap.mvp.data.v1.recovery";
+export const STORAGE_META_KEY = "stackmap.mvp.data.v1.meta";
 export const BACKUP_VERSION = 1;
 
 export const PROJECT_TYPES: ProjectType[] = [

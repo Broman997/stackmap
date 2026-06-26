@@ -25,6 +25,19 @@ type MapNodeData = {
   lane: "Workspace" | "AI" | "Project" | "Support";
 };
 
+const relationshipGroupOrder = [
+  "uses",
+  "depends_on",
+  "deploys_to",
+  "stores_data_in",
+  "integrates_with",
+  "publishes_to",
+  "markets_through",
+  "pays_for",
+  "assists_with",
+  "other",
+];
+
 const filterOptions: Array<{ value: MapFilter; label: string }> = [
   { value: "all", label: "All" },
   { value: "projects", label: "Projects" },
@@ -57,19 +70,134 @@ function getToolLane(tool: StackMapData["tools"][number]): MapNodeData["lane"] {
 function getLanePosition(lane: MapNodeData["lane"], index: number) {
   const xByLane: Record<MapNodeData["lane"], number> = {
     Workspace: 0,
-    AI: 360,
-    Project: 720,
-    Support: 1080,
+    Project: 270,
+    AI: 540,
+    Support: 810,
   };
 
   return {
     x: xByLane[lane],
-    y: index * 115,
+    y: index * 96,
   };
 }
 
 function getRelationshipLabel(type: string) {
   return type.replaceAll("_", " ");
+}
+
+function getRelationshipOrder(type: string) {
+  const index = relationshipGroupOrder.indexOf(type);
+  return index === -1 ? relationshipGroupOrder.length : index;
+}
+
+function getToolOrder(tool: StackMapData["tools"][number]) {
+  const name = tool.name.toLowerCase();
+  if (name.includes("visual studio")) return 0;
+  if (name.includes("vs code")) return 1;
+  if (name.includes("xcode")) return 2;
+  if (name.includes("android studio")) return 3;
+  if (name.includes("cursor")) return 4;
+  return 10;
+}
+
+function applyFocusedGroupLayout(
+  nodes: Node<MapNodeData>[],
+  relationships: StackMapData["relationships"],
+  focusedNodeId: string | null,
+) {
+  if (!focusedNodeId) return nodes;
+
+  const focusedNode = nodes.find((node) => node.id === focusedNodeId);
+  if (!focusedNode) return nodes;
+
+  const visibleNodeIds = new Set(nodes.map((node) => node.id));
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const directGroups = new Map<string, Set<string>>();
+  const directGroupByNodeId = new Map<string, string>();
+
+  relationships.forEach((relationship) => {
+    const source = `${relationship.fromType}:${relationship.fromId}`;
+    const target = `${relationship.toType}:${relationship.toId}`;
+    const otherNodeId =
+      source === focusedNodeId ? target : target === focusedNodeId ? source : null;
+
+    if (!otherNodeId || !visibleNodeIds.has(otherNodeId)) return;
+
+    if (!directGroups.has(relationship.relationshipType)) {
+      directGroups.set(relationship.relationshipType, new Set());
+    }
+    directGroups.get(relationship.relationshipType)?.add(otherNodeId);
+    directGroupByNodeId.set(otherNodeId, relationship.relationshipType);
+  });
+
+  const relatedGroups = new Map<string, Set<string>>();
+  const assignedRelatedNodeIds = new Set<string>();
+
+  relationships.forEach((relationship) => {
+    const source = `${relationship.fromType}:${relationship.fromId}`;
+    const target = `${relationship.toType}:${relationship.toId}`;
+    const sourceGroup = directGroupByNodeId.get(source);
+    const targetGroup = directGroupByNodeId.get(target);
+
+    if (sourceGroup && target !== focusedNodeId && !directGroupByNodeId.has(target) && visibleNodeIds.has(target)) {
+      if (!relatedGroups.has(sourceGroup)) relatedGroups.set(sourceGroup, new Set());
+      relatedGroups.get(sourceGroup)?.add(target);
+      assignedRelatedNodeIds.add(target);
+    }
+
+    if (targetGroup && source !== focusedNodeId && !directGroupByNodeId.has(source) && visibleNodeIds.has(source)) {
+      if (!relatedGroups.has(targetGroup)) relatedGroups.set(targetGroup, new Set());
+      relatedGroups.get(targetGroup)?.add(source);
+      assignedRelatedNodeIds.add(source);
+    }
+  });
+
+  const remainingNodeIds = nodes
+    .map((node) => node.id)
+    .filter(
+      (id) =>
+        id !== focusedNodeId &&
+        !directGroupByNodeId.has(id) &&
+        !assignedRelatedNodeIds.has(id),
+    );
+
+  if (remainingNodeIds.length) {
+    relatedGroups.set("other", new Set(remainingNodeIds));
+  }
+
+  const groupKeys = Array.from(
+    new Set([...directGroups.keys(), ...relatedGroups.keys()]),
+  ).sort((a, b) => getRelationshipOrder(a) - getRelationshipOrder(b) || a.localeCompare(b));
+
+  const nextPositions = new Map<string, { x: number; y: number }>();
+  let y = 0;
+
+  groupKeys.forEach((groupKey) => {
+    const directIds = Array.from(directGroups.get(groupKey) ?? []).sort((a, b) =>
+      (nodeById.get(a)?.data.label ?? "").localeCompare(nodeById.get(b)?.data.label ?? ""),
+    );
+    const relatedIds = Array.from(relatedGroups.get(groupKey) ?? []).sort((a, b) =>
+      (nodeById.get(a)?.data.label ?? "").localeCompare(nodeById.get(b)?.data.label ?? ""),
+    );
+    const rowCount = Math.max(directIds.length, relatedIds.length, 1);
+
+    directIds.forEach((id, index) => {
+      nextPositions.set(id, { x: 320, y: y + index * 96 });
+    });
+    relatedIds.forEach((id, index) => {
+      nextPositions.set(id, { x: 620, y: y + index * 96 });
+    });
+
+    y += rowCount * 96 + 70;
+  });
+
+  const focusedY = Math.max(0, (y - 70) / 2 - 48);
+  nextPositions.set(focusedNodeId, { x: 0, y: focusedY });
+
+  return nodes.map((node) => ({
+    ...node,
+    position: nextPositions.get(node.id) ?? node.position,
+  }));
 }
 
 export function StackMapFlow({ data }: { data: StackMapData }) {
@@ -95,12 +223,14 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
       Support: 0,
     };
 
-    const projectNodes = data.projects.map((project, index) => {
+    const projectNodes = data.projects.map((project) => {
       const reviewCount = getProjectReviewItems(project, data).length;
       const lane = "Project" as const;
+      const nodeId = `project:${project.id}`;
+      const generatedPosition = getLanePosition(lane, laneIndexes[lane]++);
       return {
-        id: `project:${project.id}`,
-        position: getLanePosition(lane, laneIndexes[lane]++),
+        id: nodeId,
+        position: generatedPosition,
         data: {
           label: project.name,
           kind: "Project" as const,
@@ -115,19 +245,29 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
           background: "#ecfeff",
           color: "#164e63",
           borderRadius: 8,
-          padding: 12,
-          width: 230,
+          padding: 10,
+          width: 210,
           boxShadow: reviewCount ? "0 0 0 3px #fef3c7" : undefined,
         },
       };
     });
 
-    const toolNodes = data.tools.map((tool, index) => {
+    const orderedTools = [...data.tools].sort((a, b) => {
+      const laneCompare = getLanePosition(getToolLane(a), 0).x - getLanePosition(getToolLane(b), 0).x;
+      if (laneCompare !== 0) return laneCompare;
+      const orderCompare = getToolOrder(a) - getToolOrder(b);
+      if (orderCompare !== 0) return orderCompare;
+      return a.name.localeCompare(b.name);
+    });
+
+    const toolNodes = orderedTools.map((tool) => {
       const reviewCount = getToolReviewItems(tool, data).length;
       const lane = getToolLane(tool);
+      const nodeId = `tool:${tool.id}`;
+      const generatedPosition = getLanePosition(lane, laneIndexes[lane]++);
       return {
-        id: `tool:${tool.id}`,
-        position: getLanePosition(lane, laneIndexes[lane]++),
+        id: nodeId,
+        position: generatedPosition,
         data: {
           label: tool.name,
           kind: "Tool" as const,
@@ -142,8 +282,8 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
           background: lane === "AI" ? "#f5f3ff" : "#fffbeb",
           color: lane === "AI" ? "#4c1d95" : "#78350f",
           borderRadius: 8,
-          padding: 12,
-          width: 230,
+          padding: 10,
+          width: 210,
           boxShadow: reviewCount ? "0 0 0 3px #fef3c7" : undefined,
         },
       };
@@ -241,9 +381,12 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
   }, [allNodes, data.relationships, focusedNodeId]);
 
   const nodes = useMemo(() => {
-    if (!focusedNodeIds) return filteredNodes;
-    return filteredNodes.filter((node) => focusedNodeIds.has(node.id));
-  }, [filteredNodes, focusedNodeIds]);
+    const visibleNodes = focusedNodeIds
+      ? filteredNodes.filter((node) => focusedNodeIds.has(node.id))
+      : filteredNodes;
+
+    return applyFocusedGroupLayout(visibleNodes, data.relationships, focusedNodeId);
+  }, [data.relationships, filteredNodes, focusedNodeId, focusedNodeIds]);
 
   const visibleNodeIds = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes]);
 
@@ -289,9 +432,13 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
     return (
       <ReactFlow
         key={flowKey}
+        className="h-full w-full"
         nodes={nodes}
         edges={edges}
         fitView
+        fitViewOptions={{ padding: 0.18, minZoom: 0.4, maxZoom: 1 }}
+        minZoom={0.25}
+        maxZoom={1.4}
         onNodeClick={(_, node) => {
           setSelected(node.data);
           setFocusedNodeId(node.id);

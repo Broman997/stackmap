@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { STORAGE_KEY } from "./constants";
+import { STORAGE_KEY, STORAGE_META_KEY, STORAGE_RECOVERY_KEY } from "./constants";
 import { seedData } from "./seed";
 import type {
   DuplicateDecision,
@@ -123,19 +123,51 @@ function normalizeData(
 
 function loadData(): StackMapData {
   if (typeof window === "undefined") return cloneSeed();
+
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  if (!stored) {
+  const recovery = window.localStorage.getItem(STORAGE_RECOVERY_KEY);
+
+  if (!stored && !recovery) {
     const seeded = cloneSeed();
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+    saveData(seeded);
     return seeded;
   }
 
+  const parseSource = (source: string | null) => {
+    if (!source) return null;
+    const parsed = JSON.parse(source);
+    return isStackMapData(parsed) ? normalizeData(parsed) : null;
+  };
+
   try {
-    const parsed = JSON.parse(stored);
-    return isStackMapData(parsed) ? normalizeData(parsed) : cloneSeed();
+    return parseSource(stored) ?? parseSource(recovery) ?? cloneSeed();
   } catch {
-    return cloneSeed();
+    try {
+      return parseSource(recovery) ?? cloneSeed();
+    } catch {
+      return cloneSeed();
+    }
   }
+}
+
+function saveData(data: StackMapData) {
+  const serialized = JSON.stringify(data);
+  const savedAt = timestamp();
+  window.localStorage.setItem(STORAGE_KEY, serialized);
+  window.localStorage.setItem(STORAGE_RECOVERY_KEY, serialized);
+  window.localStorage.setItem(
+    STORAGE_META_KEY,
+    JSON.stringify({
+      savedAt,
+      origin: window.location.origin,
+      counts: {
+        projects: data.projects.length,
+        tools: data.tools.length,
+        relationships: data.relationships.length,
+        subscriptions: data.subscriptions.length,
+      },
+    }),
+  );
 }
 
 export function useStackMapData() {
@@ -143,13 +175,21 @@ export function useStackMapData() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    setData(loadData());
-    setIsReady(true);
+    let isCancelled = false;
+    window.setTimeout(() => {
+      if (isCancelled) return;
+      setData(loadData());
+      setIsReady(true);
+    }, 0);
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (!isReady) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    saveData(data);
   }, [data, isReady]);
 
   const actions = useMemo(

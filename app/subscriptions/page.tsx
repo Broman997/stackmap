@@ -15,12 +15,14 @@ export default function SubscriptionsPage() {
   const [defaultToolId, setDefaultToolId] = useState<string | undefined>();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const toolId = params.get("toolId");
-    if (toolId) {
-      setDefaultToolId(toolId);
-      setIsAdding(true);
-    }
+    window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const toolId = params.get("toolId");
+      if (toolId) {
+        setDefaultToolId(toolId);
+        setIsAdding(true);
+      }
+    }, 0);
   }, []);
 
   const columns: TableColumn<Subscription>[] = [

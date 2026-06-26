@@ -285,7 +285,7 @@ export default function ReviewPage() {
         <div>
           <h2 className="text-lg font-semibold text-slate-950">Record Detail Checklist</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Use Mark Reviewed after you have checked a record's notes, links, cost, and relationships.
+            Use Mark Reviewed after you have checked a record&apos;s notes, links, cost, and relationships.
           </p>
         </div>
         {reviews.map((record) => (

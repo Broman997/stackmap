@@ -15,13 +15,15 @@ export default function RelationshipsPage() {
   const [defaultFrom, setDefaultFrom] = useState<{ type: EntityType; id: string } | undefined>();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const fromType = params.get("fromType");
-    const fromId = params.get("fromId");
-    if ((fromType === "project" || fromType === "tool") && fromId) {
-      setDefaultFrom({ type: fromType, id: fromId });
-      setIsAdding(true);
-    }
+    window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const fromType = params.get("fromType");
+      const fromId = params.get("fromId");
+      if ((fromType === "project" || fromType === "tool") && fromId) {
+        setDefaultFrom({ type: fromType, id: fromId });
+        setIsAdding(true);
+      }
+    }, 0);
   }, []);
 
   const columns: TableColumn<Relationship>[] = [
