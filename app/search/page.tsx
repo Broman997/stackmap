@@ -4,7 +4,12 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStackMapData } from "@/lib/storage";
-import { getEntityName, getProjectReviewItems, getToolReviewItems } from "@/lib/utils";
+import {
+  getEntityName,
+  getProjectReviewItems,
+  getRelationshipLabel,
+  getToolReviewItems,
+} from "@/lib/utils";
 
 type Result = {
   id: string;
@@ -45,7 +50,7 @@ export default function SearchPage() {
       ...data.relationships.map((relationship) => ({
         id: relationship.id,
         type: "Relationship",
-        name: `${getEntityName(data, relationship.fromType, relationship.fromId)} ${relationship.relationshipType} ${getEntityName(data, relationship.toType, relationship.toId)}`,
+        name: `${getEntityName(data, relationship.fromType, relationship.fromId)} ${getRelationshipLabel(relationship.relationshipType)} ${getEntityName(data, relationship.toType, relationship.toId)}`,
         detail: relationship.notes || "No notes",
         href: "/relationships",
       })),

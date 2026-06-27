@@ -2,6 +2,7 @@
 
 import { RELATIONSHIP_TYPES } from "@/lib/constants";
 import type { EntityType, Project, Relationship, Tool } from "@/lib/types";
+import { getRelationshipLabel } from "@/lib/utils";
 import { useState } from "react";
 
 type RelationshipFormValue = Omit<Relationship, "id" | "createdAt" | "updatedAt">;
@@ -44,13 +45,18 @@ export function RelationshipForm({
   const first = options[0]?.value ?? "";
   const defaultFromValue = defaultFrom ? `${defaultFrom.type}:${defaultFrom.id}` : "";
   const defaultFromExists = options.some((option) => option.value === defaultFromValue);
-  const fromValue = initialValue
+  const initialFromValue = initialValue
     ? `${initialValue.fromType}:${initialValue.fromId}`
     : defaultFromExists
       ? defaultFromValue
       : first;
-  const fallbackTo = options.find((option) => option.value !== fromValue)?.value ?? first;
-  const toValue = initialValue ? `${initialValue.toType}:${initialValue.toId}` : fallbackTo;
+  const fallbackTo = options.find((option) => option.value !== initialFromValue)?.value ?? first;
+  const initialToValue = initialValue ? `${initialValue.toType}:${initialValue.toId}` : fallbackTo;
+  const [fromValue, setFromValue] = useState(initialFromValue);
+  const [toValue, setToValue] = useState(initialToValue);
+  const [relationshipType, setRelationshipType] = useState(
+    initialValue?.relationshipType ?? "uses",
+  );
 
   return (
     <form
@@ -58,8 +64,8 @@ export function RelationshipForm({
       onSubmit={(event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
-        const from = splitEntity(String(formData.get("from") ?? ""));
-        const to = splitEntity(String(formData.get("to") ?? ""));
+        const from = splitEntity(fromValue);
+        const to = splitEntity(toValue);
         if (options.length < 2) {
           setError("Add at least two projects or tools before creating a relationship.");
           return;
@@ -74,9 +80,7 @@ export function RelationshipForm({
           fromId: from.id,
           toType: to.type,
           toId: to.id,
-          relationshipType: String(
-            formData.get("relationshipType") ?? "uses",
-          ) as RelationshipFormValue["relationshipType"],
+          relationshipType,
           notes: String(formData.get("notes") ?? "").trim(),
         });
       }}
@@ -89,7 +93,13 @@ export function RelationshipForm({
       <div className="grid gap-4 md:grid-cols-3">
         <label className="grid gap-1 text-sm font-medium text-slate-700">
           From
-          <select key={`from-${fromValue}`} name="from" required defaultValue={fromValue} className="rounded-md border border-slate-300 px-3 py-2 font-normal">
+          <select
+            name="from"
+            required
+            value={fromValue}
+            onChange={(event) => setFromValue(event.target.value)}
+            className="rounded-md border border-slate-300 px-3 py-2 font-normal"
+          >
             {options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -99,15 +109,30 @@ export function RelationshipForm({
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700">
           Relationship
-          <select name="relationshipType" defaultValue={initialValue?.relationshipType ?? "uses"} className="rounded-md border border-slate-300 px-3 py-2 font-normal">
+          <select
+            name="relationshipType"
+            value={relationshipType}
+            onChange={(event) =>
+              setRelationshipType(event.target.value as RelationshipFormValue["relationshipType"])
+            }
+            className="rounded-md border border-slate-300 px-3 py-2 font-normal"
+          >
             {RELATIONSHIP_TYPES.map((type) => (
-              <option key={type}>{type}</option>
+              <option key={type} value={type}>
+                {getRelationshipLabel(type)}
+              </option>
             ))}
           </select>
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700">
           To
-          <select key={`to-${toValue}`} name="to" required defaultValue={toValue} className="rounded-md border border-slate-300 px-3 py-2 font-normal">
+          <select
+            name="to"
+            required
+            value={toValue}
+            onChange={(event) => setToValue(event.target.value)}
+            className="rounded-md border border-slate-300 px-3 py-2 font-normal"
+          >
             {options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}

@@ -6,7 +6,7 @@ import { EntityTable, type TableColumn } from "@/components/EntityTable";
 import { RelationshipForm } from "@/components/RelationshipForm";
 import { useStackMapData } from "@/lib/storage";
 import type { EntityType, Relationship } from "@/lib/types";
-import { getEntityName } from "@/lib/utils";
+import { getEntityName, getRelationshipLabel } from "@/lib/utils";
 
 export default function RelationshipsPage() {
   const { data, addRelationship, updateRelationship, deleteRelationship } = useStackMapData();
@@ -34,7 +34,7 @@ export default function RelationshipsPage() {
     },
     {
       header: "Relationship",
-      cell: (item) => item.relationshipType,
+      cell: (item) => getRelationshipLabel(item.relationshipType),
       sortValue: (item) => item.relationshipType,
     },
     {

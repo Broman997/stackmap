@@ -1,4 +1,4 @@
-import type { Project, StackMapData, Tool } from "./types";
+import type { Project, RelationshipType, StackMapData, Tool } from "./types";
 
 export type DuplicateReviewGroup = {
   id: string;
@@ -55,6 +55,11 @@ export function daysSince(value: string | undefined) {
 export function getEntityName(data: StackMapData, type: "project" | "tool", id: string) {
   const source = type === "project" ? data.projects : data.tools;
   return source.find((item) => item.id === id)?.name ?? "Unknown";
+}
+
+export function getRelationshipLabel(type: RelationshipType | string) {
+  if (type === "assists_with") return "built with";
+  return type.replaceAll("_", " ");
 }
 
 export function toNumber(value: FormDataEntryValue | null) {

@@ -6,6 +6,7 @@ import type {
   SuggestionFieldValue,
   ToolCategory,
 } from "./types";
+import { getRelationshipLabel } from "./utils";
 
 export type LocalScanFile = {
   path: string;
@@ -507,7 +508,7 @@ export function scanLocalProject(
       hasPendingRelationshipSuggestion(data, projectName, tool.name, tool.relationshipType)
     ) {
       skipped.push({
-        label: `${projectName} ${tool.relationshipType.replaceAll("_", " ")} ${tool.name}`,
+        label: `${projectName} ${getRelationshipLabel(tool.relationshipType)} ${tool.name}`,
         reason: "Relationship already exists or is already pending.",
       });
       return;
@@ -518,7 +519,7 @@ export function scanLocalProject(
       entityType: "relationship",
       confidence: Math.max(0.65, tool.confidence - 0.04),
       detectedFields: {
-        name: `${projectName} ${tool.relationshipType.replaceAll("_", " ")} ${tool.name}`,
+        name: `${projectName} ${getRelationshipLabel(tool.relationshipType)} ${tool.name}`,
         fromType: "project",
         fromName: projectName,
         fromSourceUrl: repository,

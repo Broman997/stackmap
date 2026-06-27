@@ -6,37 +6,31 @@ import { Expand, Shrink } from "lucide-react";
 import {
   Background,
   Controls,
+  Position,
   ReactFlow,
   type Edge,
   type Node,
 } from "@xyflow/react";
 import type { StackMapData } from "@/lib/types";
-import { cn, getEntityName, getProjectReviewItems, getToolReviewItems } from "@/lib/utils";
+import {
+  cn,
+  getEntityName,
+  getProjectReviewItems,
+  getRelationshipLabel,
+  getToolReviewItems,
+} from "@/lib/utils";
 
 type MapFilter = "all" | "projects" | "tools" | "connected" | "review";
 
 type MapNodeData = {
   label: string;
-  kind: "Project" | "Tool";
+  kind: "Project" | "Tool" | "Relationship";
   meta: string;
   notes: string;
-  href: string;
+  href?: string;
   reviewCount: number;
   lane: "Workspace" | "AI" | "Project" | "Support";
 };
-
-const relationshipGroupOrder = [
-  "uses",
-  "depends_on",
-  "deploys_to",
-  "stores_data_in",
-  "integrates_with",
-  "publishes_to",
-  "markets_through",
-  "pays_for",
-  "assists_with",
-  "other",
-];
 
 const filterOptions: Array<{ value: MapFilter; label: string }> = [
   { value: "all", label: "All" },
@@ -55,6 +49,19 @@ const workspaceToolNames = [
 ];
 
 const aiToolNames = ["chatgpt", "codex", "claude", "openai"];
+
+const focusedRelationshipOrder = [
+  "uses",
+  "assists_with",
+  "depends_on",
+  "deploys_to",
+  "integrates_with",
+  "stores_data_in",
+  "publishes_to",
+  "markets_through",
+  "pays_for",
+  "other",
+];
 
 function getToolLane(tool: StackMapData["tools"][number]): MapNodeData["lane"] {
   const name = tool.name.toLowerCase();
@@ -81,13 +88,9 @@ function getLanePosition(lane: MapNodeData["lane"], index: number) {
   };
 }
 
-function getRelationshipLabel(type: string) {
-  return type.replaceAll("_", " ");
-}
-
 function getRelationshipOrder(type: string) {
-  const index = relationshipGroupOrder.indexOf(type);
-  return index === -1 ? relationshipGroupOrder.length : index;
+  const index = focusedRelationshipOrder.indexOf(type);
+  return index === -1 ? focusedRelationshipOrder.length : index;
 }
 
 function getToolOrder(tool: StackMapData["tools"][number]) {
@@ -107,97 +110,109 @@ function applyFocusedGroupLayout(
 ) {
   if (!focusedNodeId) return nodes;
 
-  const focusedNode = nodes.find((node) => node.id === focusedNodeId);
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const focusedNode = nodeById.get(focusedNodeId);
   if (!focusedNode) return nodes;
 
-  const visibleNodeIds = new Set(nodes.map((node) => node.id));
-  const nodeById = new Map(nodes.map((node) => [node.id, node]));
-  const directGroups = new Map<string, Set<string>>();
-  const directGroupByNodeId = new Map<string, string>();
-
+  const groups = new Map<string, Node<MapNodeData>[]>();
+  const startNodeIds = new Set<string>();
+  const startNodes: Node<MapNodeData>[] = [];
   relationships.forEach((relationship) => {
     const source = `${relationship.fromType}:${relationship.fromId}`;
     const target = `${relationship.toType}:${relationship.toId}`;
     const otherNodeId =
       source === focusedNodeId ? target : target === focusedNodeId ? source : null;
 
-    if (!otherNodeId || !visibleNodeIds.has(otherNodeId)) return;
+    const otherNode = otherNodeId ? nodeById.get(otherNodeId) : undefined;
+    if (otherNode) {
+      if (relationship.relationshipType === "uses" && otherNode.data.lane === "Workspace") {
+        if (!startNodeIds.has(otherNode.id)) {
+          startNodeIds.add(otherNode.id);
+          startNodes.push(otherNode);
+        }
+        return;
+      }
 
-    if (!directGroups.has(relationship.relationshipType)) {
-      directGroups.set(relationship.relationshipType, new Set());
-    }
-    directGroups.get(relationship.relationshipType)?.add(otherNodeId);
-    directGroupByNodeId.set(otherNodeId, relationship.relationshipType);
-  });
-
-  const relatedGroups = new Map<string, Set<string>>();
-  const assignedRelatedNodeIds = new Set<string>();
-
-  relationships.forEach((relationship) => {
-    const source = `${relationship.fromType}:${relationship.fromId}`;
-    const target = `${relationship.toType}:${relationship.toId}`;
-    const sourceGroup = directGroupByNodeId.get(source);
-    const targetGroup = directGroupByNodeId.get(target);
-
-    if (sourceGroup && target !== focusedNodeId && !directGroupByNodeId.has(target) && visibleNodeIds.has(target)) {
-      if (!relatedGroups.has(sourceGroup)) relatedGroups.set(sourceGroup, new Set());
-      relatedGroups.get(sourceGroup)?.add(target);
-      assignedRelatedNodeIds.add(target);
-    }
-
-    if (targetGroup && source !== focusedNodeId && !directGroupByNodeId.has(source) && visibleNodeIds.has(source)) {
-      if (!relatedGroups.has(targetGroup)) relatedGroups.set(targetGroup, new Set());
-      relatedGroups.get(targetGroup)?.add(source);
-      assignedRelatedNodeIds.add(source);
+      groups.set(relationship.relationshipType, [
+        ...(groups.get(relationship.relationshipType) ?? []),
+        otherNode,
+      ]);
     }
   });
 
-  const remainingNodeIds = nodes
-    .map((node) => node.id)
-    .filter(
-      (id) =>
-        id !== focusedNodeId &&
-        !directGroupByNodeId.has(id) &&
-        !assignedRelatedNodeIds.has(id),
-    );
+  const groupEntries = Array.from(groups.entries())
+    .map(([relationshipType, groupNodes]) => [
+      relationshipType,
+      [...groupNodes].sort((a, b) => a.data.label.localeCompare(b.data.label)),
+    ] as const)
+    .sort(([a], [b]) => getRelationshipOrder(a) - getRelationshipOrder(b) || a.localeCompare(b));
 
-  if (remainingNodeIds.length) {
-    relatedGroups.set("other", new Set(remainingNodeIds));
-  }
-
-  const groupKeys = Array.from(
-    new Set([...directGroups.keys(), ...relatedGroups.keys()]),
-  ).sort((a, b) => getRelationshipOrder(a) - getRelationshipOrder(b) || a.localeCompare(b));
-
-  const nextPositions = new Map<string, { x: number; y: number }>();
+  const groupNodes: Node<MapNodeData>[] = [];
+  const positionedRelatedNodes: Node<MapNodeData>[] = [];
+  const relatedYStep = 106;
+  const groupGap = 54;
   let y = 0;
+  const startX = 0;
+  const focusedX = 300;
+  const groupX = 630;
+  const relatedX = 960;
 
-  groupKeys.forEach((groupKey) => {
-    const directIds = Array.from(directGroups.get(groupKey) ?? []).sort((a, b) =>
-      (nodeById.get(a)?.data.label ?? "").localeCompare(nodeById.get(b)?.data.label ?? ""),
-    );
-    const relatedIds = Array.from(relatedGroups.get(groupKey) ?? []).sort((a, b) =>
-      (nodeById.get(a)?.data.label ?? "").localeCompare(nodeById.get(b)?.data.label ?? ""),
-    );
-    const rowCount = Math.max(directIds.length, relatedIds.length, 1);
-
-    directIds.forEach((id, index) => {
-      nextPositions.set(id, { x: 320, y: y + index * 96 });
-    });
-    relatedIds.forEach((id, index) => {
-      nextPositions.set(id, { x: 620, y: y + index * 96 });
+  groupEntries.forEach(([relationshipType, relatedNodes]) => {
+    const groupStartY = y;
+    relatedNodes.forEach((node, index) => {
+      positionedRelatedNodes.push({
+        ...node,
+        position: { x: relatedX, y: groupStartY + index * relatedYStep },
+      });
     });
 
-    y += rowCount * 96 + 70;
+    const groupY = groupStartY + ((relatedNodes.length - 1) * relatedYStep) / 2;
+    groupNodes.push({
+      id: `relationship-group:${relationshipType}`,
+      position: { x: groupX, y: groupY },
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
+      data: {
+        label: getRelationshipLabel(relationshipType),
+        kind: "Relationship",
+        meta: `${relatedNodes.length} linked record${relatedNodes.length === 1 ? "" : "s"}`,
+        notes: "",
+        reviewCount: 0,
+        lane: "Support",
+      },
+      style: {
+        border: "1px solid #64748b",
+        background: "#f8fafc",
+        color: "#0f172a",
+        borderRadius: 8,
+        padding: 10,
+        width: 190,
+        fontWeight: 700,
+        textTransform: "capitalize",
+      },
+      draggable: false,
+      selectable: false,
+    });
+
+    y += relatedNodes.length * relatedYStep + groupGap;
   });
 
-  const focusedY = Math.max(0, (y - 70) / 2 - 48);
-  nextPositions.set(focusedNodeId, { x: 0, y: focusedY });
+  const focusedY = Math.max(0, (y - groupGap - relatedYStep) / 2);
+  const positionedFocusedNode = {
+    ...focusedNode,
+    position: { x: focusedX, y: focusedY },
+  };
+  const positionedStartNodes = [...startNodes]
+    .sort((a, b) => a.data.label.localeCompare(b.data.label))
+    .map((node, index, list) => ({
+      ...node,
+      position: {
+        x: startX,
+        y: focusedY - ((list.length - 1) * relatedYStep) / 2 + index * relatedYStep,
+      },
+    }));
 
-  return nodes.map((node) => ({
-    ...node,
-    position: nextPositions.get(node.id) ?? node.position,
-  }));
+  return [...positionedStartNodes, positionedFocusedNode, ...groupNodes, ...positionedRelatedNodes];
 }
 
 export function StackMapFlow({ data }: { data: StackMapData }) {
@@ -231,6 +246,8 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
       return {
         id: nodeId,
         position: generatedPosition,
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
         data: {
           label: project.name,
           kind: "Project" as const,
@@ -268,6 +285,8 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
       return {
         id: nodeId,
         position: generatedPosition,
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
         data: {
           label: tool.name,
           kind: "Tool" as const,
@@ -306,115 +325,144 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
     if (!focusedNodeId) return null;
 
     const ids = new Set([focusedNodeId]);
-    let frontier = new Set([focusedNodeId]);
-
-    for (let depth = 0; depth < 2; depth += 1) {
-      const nextFrontier = new Set<string>();
-
-      data.relationships.forEach((relationship) => {
-        const source = `${relationship.fromType}:${relationship.fromId}`;
-        const target = `${relationship.toType}:${relationship.toId}`;
-
-        if (frontier.has(source) && !ids.has(target)) {
-          ids.add(target);
-          nextFrontier.add(target);
-        }
-
-        if (frontier.has(target) && !ids.has(source)) {
-          ids.add(source);
-          nextFrontier.add(source);
-        }
-      });
-
-      frontier = nextFrontier;
-      if (!frontier.size) break;
-    }
-
-    if (focusedNodeId.startsWith("project:")) {
-      Array.from(ids).forEach((id) => {
-        if (id.startsWith("project:") && id !== focusedNodeId) {
-          ids.delete(id);
-        }
-      });
-    }
-
-    const includedProjectIds = new Set(
-      Array.from(ids)
-        .filter((id) => id.startsWith("project:"))
-        .map((id) => id.replace("project:", "")),
-    );
-
     data.relationships.forEach((relationship) => {
       const source = `${relationship.fromType}:${relationship.fromId}`;
       const target = `${relationship.toType}:${relationship.toId}`;
 
-      if (relationship.fromType === "project" && includedProjectIds.has(relationship.fromId)) {
-        if (!target.startsWith("project:")) ids.add(target);
-      }
-
-      if (relationship.toType === "project" && includedProjectIds.has(relationship.toId)) {
-        if (!source.startsWith("project:")) ids.add(source);
-      }
-    });
-
-    const nodeById = new Map(allNodes.map((node) => [node.id, node]));
-    const includedAiToolIds = new Set(
-      Array.from(ids).filter((id) => nodeById.get(id)?.data.lane === "AI"),
-    );
-
-    data.relationships.forEach((relationship) => {
-      const source = `${relationship.fromType}:${relationship.fromId}`;
-      const target = `${relationship.toType}:${relationship.toId}`;
-      const sourceNode = nodeById.get(source);
-      const targetNode = nodeById.get(target);
-
-      if (includedAiToolIds.has(source) && targetNode?.data.lane === "Workspace") {
+      if (source === focusedNodeId) {
         ids.add(target);
-      }
-
-      if (includedAiToolIds.has(target) && sourceNode?.data.lane === "Workspace") {
+      } else if (target === focusedNodeId) {
         ids.add(source);
       }
     });
 
     return ids;
-  }, [allNodes, data.relationships, focusedNodeId]);
+  }, [data.relationships, focusedNodeId]);
 
   const nodes = useMemo(() => {
-    const visibleNodes = focusedNodeIds
-      ? filteredNodes.filter((node) => focusedNodeIds.has(node.id))
-      : filteredNodes;
-
-    return applyFocusedGroupLayout(visibleNodes, data.relationships, focusedNodeId);
+    if (!focusedNodeIds) return filteredNodes;
+    return applyFocusedGroupLayout(
+      filteredNodes.filter((node) => focusedNodeIds.has(node.id)),
+      data.relationships,
+      focusedNodeId,
+    );
   }, [data.relationships, filteredNodes, focusedNodeId, focusedNodeIds]);
 
   const visibleNodeIds = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes]);
 
   const edges = useMemo<Edge[]>(
-    () =>
-      data.relationships
-        .map((relationship) => ({
-          id: relationship.id,
-          source: `${relationship.fromType}:${relationship.fromId}`,
-          target: `${relationship.toType}:${relationship.toId}`,
-          label: getRelationshipLabel(relationship.relationshipType),
-          animated: false,
-          style: { stroke: "#475569", strokeWidth: 2 },
-          labelStyle: { fill: "#334155", fontWeight: 600, fontSize: 12 },
-          labelBgStyle: { fill: "#ffffff", fillOpacity: 0.9 },
-        }))
+    () => {
+      if (focusedNodeId) {
+        const focusedEdges: Edge[] = [];
+        const connectedGroupIds = new Set<string>();
+        const visibleNodeById = new Map(nodes.map((node) => [node.id, node]));
+
+        data.relationships.forEach((relationship) => {
+          const source = `${relationship.fromType}:${relationship.fromId}`;
+          const target = `${relationship.toType}:${relationship.toId}`;
+          const groupId = `relationship-group:${relationship.relationshipType}`;
+
+          if (source !== focusedNodeId && target !== focusedNodeId) return;
+
+          const otherNodeId = source === focusedNodeId ? target : source;
+          if (!visibleNodeIds.has(otherNodeId)) return;
+          const otherNode = visibleNodeById.get(otherNodeId);
+
+          if (relationship.relationshipType === "uses" && otherNode?.data.lane === "Workspace") {
+            focusedEdges.push({
+              id: `${otherNodeId}->${focusedNodeId}`,
+              source: otherNodeId,
+              target: focusedNodeId,
+              type: "smoothstep",
+              animated: false,
+              style: { stroke: "#334155", strokeWidth: 2.4 },
+            });
+            return;
+          }
+
+          if (!visibleNodeIds.has(groupId)) return;
+
+          if (!connectedGroupIds.has(groupId)) {
+            connectedGroupIds.add(groupId);
+            focusedEdges.push({
+              id: `${focusedNodeId}->${groupId}`,
+              source: focusedNodeId,
+              target: groupId,
+              type: "smoothstep",
+              animated: false,
+              style: { stroke: "#334155", strokeWidth: 2.4 },
+            });
+          }
+
+          focusedEdges.push({
+            id: `${groupId}->${otherNodeId}`,
+            source: groupId,
+            target: otherNodeId,
+            type: "smoothstep",
+            animated: false,
+            style: { stroke: "#64748b", strokeWidth: 1.8 },
+          });
+        });
+
+        return focusedEdges;
+      }
+
+      return data.relationships
+        .map((relationship) => {
+          const source = `${relationship.fromType}:${relationship.fromId}`;
+          const target = `${relationship.toType}:${relationship.toId}`;
+
+          return {
+            id: relationship.id,
+            source,
+            target,
+            type: "smoothstep",
+            label: getRelationshipLabel(relationship.relationshipType),
+            animated: false,
+            style: { stroke: "#475569", strokeWidth: 2 },
+            labelStyle: { fill: "#334155", fontWeight: 700, fontSize: 12 },
+            labelBgStyle: { fill: "#ffffff", fillOpacity: 0.95 },
+          };
+        })
         .filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target))
         .filter((edge) => {
           if (!focusedNodeIds) return true;
           return focusedNodeIds.has(edge.source) && focusedNodeIds.has(edge.target);
-        }),
-    [data.relationships, focusedNodeIds, visibleNodeIds],
+        });
+    },
+    [data.relationships, focusedNodeId, focusedNodeIds, nodes, visibleNodeIds],
   );
 
   const reviewNodeCount = allNodes.filter((node) => node.data.reviewCount > 0).length;
   const focusedLabel = focusedNodeId
     ? allNodes.find((node) => node.id === focusedNodeId)?.data.label
     : "";
+  const focusedRelationships = useMemo(() => {
+    if (!focusedNodeId) return [];
+
+    return data.relationships
+      .filter((relationship) => {
+        const source = `${relationship.fromType}:${relationship.fromId}`;
+        const target = `${relationship.toType}:${relationship.toId}`;
+        return source === focusedNodeId || target === focusedNodeId;
+      })
+      .map((relationship) => {
+        const source = `${relationship.fromType}:${relationship.fromId}`;
+        const isOutgoing = source === focusedNodeId;
+
+        return {
+          id: relationship.id,
+          label: getRelationshipLabel(relationship.relationshipType),
+          direction: isOutgoing ? "outgoing" : "incoming",
+          fromName: getEntityName(data, relationship.fromType, relationship.fromId),
+          toName: getEntityName(data, relationship.toType, relationship.toId),
+          otherName: isOutgoing
+            ? getEntityName(data, relationship.toType, relationship.toId)
+            : getEntityName(data, relationship.fromType, relationship.fromId),
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label) || a.otherName.localeCompare(b.otherName));
+  }, [data, focusedNodeId]);
 
   function changeFilter(nextFilter: MapFilter) {
     setFilter(nextFilter);
@@ -440,6 +488,7 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
         minZoom={0.25}
         maxZoom={1.4}
         onNodeClick={(_, node) => {
+          if (node.data.kind === "Relationship") return;
           setSelected(node.data);
           setFocusedNodeId(node.id);
         }}
@@ -513,7 +562,8 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
       </div>
       {focusedNodeId ? (
         <p className="mt-4 rounded-md bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-800">
-          Focused on {focusedLabel}. Showing nearby workflow relationships and project tools.
+          Focused on {focusedLabel}. {focusedRelationships.length} direct relationship
+          {focusedRelationships.length === 1 ? "" : "s"} grouped by type.
         </p>
       ) : null}
       <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-4">
@@ -524,6 +574,32 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
       </div>
     </section>
   );
+
+  const focusedRelationshipsPanel = focusedNodeId ? (
+    <div className="border-t border-slate-200 pt-4">
+      <h3 className="text-sm font-semibold text-slate-950">Focused Relationships</h3>
+      <div className="mt-3 space-y-2">
+        {focusedRelationships.map((relationship) => (
+          <div
+            key={relationship.id}
+            className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
+          >
+            <p className="font-semibold text-slate-900">
+              {relationship.direction === "outgoing"
+                ? `${focusedLabel} ${relationship.label} ${relationship.otherName}`
+                : `${relationship.otherName} ${relationship.label} ${focusedLabel}`}
+            </p>
+            <p className="mt-1 text-slate-500">
+              {relationship.fromName} -&gt; {relationship.toName}
+            </p>
+          </div>
+        ))}
+        {focusedRelationships.length === 0 ? (
+          <p className="text-sm text-slate-500">No direct relationships.</p>
+        ) : null}
+      </div>
+    </div>
+  ) : null;
 
   const detailsPanel = (
     <aside className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -549,12 +625,14 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
             </p>
           )}
           <p className="text-slate-600">{selected.notes || "No notes yet."}</p>
-          <Link
-            href={selected.href}
-            className="inline-flex rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            Open details
-          </Link>
+          {selected.href ? (
+            <Link
+              href={selected.href}
+              className="inline-flex rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              Open details
+            </Link>
+          ) : null}
         </div>
       ) : (
         <p className="mt-4 text-sm text-slate-500">
@@ -566,15 +644,19 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
         <p>{data.tools.length} tools</p>
         <p>{data.relationships.length} relationships</p>
       </div>
-      <div className="mt-4 space-y-2 text-xs text-slate-500">
-        {data.relationships.slice(0, 5).map((relationship) => (
-          <p key={relationship.id}>
-          {getEntityName(data, relationship.fromType, relationship.fromId)}{" "}
-            {getRelationshipLabel(relationship.relationshipType)}{" "}
-            {getEntityName(data, relationship.toType, relationship.toId)}
-          </p>
-        ))}
-      </div>
+      {focusedNodeId ? (
+        <div className="mt-4">{focusedRelationshipsPanel}</div>
+      ) : (
+        <div className="mt-4 space-y-2 text-xs text-slate-500">
+          {data.relationships.slice(0, 5).map((relationship) => (
+            <p key={relationship.id}>
+              {getEntityName(data, relationship.fromType, relationship.fromId)}{" "}
+              {getRelationshipLabel(relationship.relationshipType)}{" "}
+              {getEntityName(data, relationship.toType, relationship.toId)}
+            </p>
+          ))}
+        </div>
+      )}
     </aside>
   );
 
@@ -592,13 +674,8 @@ export function StackMapFlow({ data }: { data: StackMapData }) {
       {isFullScreen ? (
         <div className="fixed inset-0 z-50 grid grid-rows-[auto_minmax(0,1fr)] gap-3 bg-slate-50 p-4">
           {filterPanel}
-          <div className="grid min-h-0 gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
-            <div className="min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-              {renderFlowCanvas()}
-            </div>
-            <div className="hidden min-h-0 overflow-y-auto xl:block">
-              {detailsPanel}
-            </div>
+          <div className="min-h-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            {renderFlowCanvas()}
           </div>
         </div>
       ) : null}

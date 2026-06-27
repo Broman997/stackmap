@@ -3,6 +3,7 @@
 import { Check, ChevronDown, GitMerge, Plus, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStackMapData } from "@/lib/storage";
+import { getRelationshipLabel } from "@/lib/utils";
 import type {
   EntityType,
   ProjectType,
@@ -466,7 +467,7 @@ export default function SuggestionsPage() {
                 {suggestion.entityType === "relationship" ? (
                   <p className="mt-2 text-sm font-medium text-slate-600">
                     {relationshipFrom && relationshipTo
-                      ? `Ready: ${relationshipFrom.name} ${resolvedRelationship?.relationshipType.replaceAll("_", " ")} ${relationshipTo.name}`
+                      ? `Ready: ${relationshipFrom.name} ${getRelationshipLabel(resolvedRelationship?.relationshipType ?? "")} ${relationshipTo.name}`
                       : "Needs matching project and tool records before it can be accepted."}
                   </p>
                 ) : null}

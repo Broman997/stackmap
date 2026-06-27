@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Plus } from "lucide-react";
 import { useStackMapData } from "@/lib/storage";
-import { formatCurrency, formatDate, getEntityName, getToolReviewItems } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDate,
+  getEntityName,
+  getRelationshipLabel,
+  getToolReviewItems,
+} from "@/lib/utils";
 
 export default function ToolDetailPage() {
   const params = useParams<{ id: string }>();
@@ -138,8 +144,8 @@ export default function ToolDetailPage() {
           <h2 className="text-base font-semibold text-slate-950">Relationships</h2>
           <div className="mt-3 divide-y divide-slate-100">
             {relationships.map((relationship) => (
-              <p key={relationship.id} className="py-3 text-sm text-slate-700">
-                {getEntityName(data, relationship.fromType, relationship.fromId)} {relationship.relationshipType} {getEntityName(data, relationship.toType, relationship.toId)}
+            <p key={relationship.id} className="py-3 text-sm text-slate-700">
+                {getEntityName(data, relationship.fromType, relationship.fromId)} {getRelationshipLabel(relationship.relationshipType)} {getEntityName(data, relationship.toType, relationship.toId)}
               </p>
             ))}
             {relationships.length === 0 ? <p className="py-3 text-sm text-slate-500">No relationships yet.</p> : null}

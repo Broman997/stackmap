@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Plus } from "lucide-react";
 import { useStackMapData } from "@/lib/storage";
-import { formatDate, getEntityName, getProjectReviewItems } from "@/lib/utils";
+import {
+  formatDate,
+  getEntityName,
+  getProjectReviewItems,
+  getRelationshipLabel,
+} from "@/lib/utils";
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
@@ -111,7 +116,7 @@ export default function ProjectDetailPage() {
         <div className="mt-3 divide-y divide-slate-100">
           {relationships.map((relationship) => (
             <p key={relationship.id} className="py-3 text-sm text-slate-700">
-              {getEntityName(data, relationship.fromType, relationship.fromId)} {relationship.relationshipType} {getEntityName(data, relationship.toType, relationship.toId)}
+              {getEntityName(data, relationship.fromType, relationship.fromId)} {getRelationshipLabel(relationship.relationshipType)} {getEntityName(data, relationship.toType, relationship.toId)}
             </p>
           ))}
           {relationships.length === 0 ? <p className="py-3 text-sm text-slate-500">No relationships yet.</p> : null}
