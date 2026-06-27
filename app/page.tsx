@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { AlertCircle, CalendarClock, CreditCard, FolderKanban, Wrench } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
-import { useStackMapData } from "@/lib/storage";
+import { useStackMapData, useStackMapStorageMeta } from "@/lib/storage";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 function monthlyEquivalent(amount: number, cycle: string) {
@@ -16,6 +17,7 @@ function monthlyEquivalent(amount: number, cycle: string) {
 
 export default function DashboardPage() {
   const { data } = useStackMapData();
+  const { storageMeta, backupMeta } = useStackMapStorageMeta();
   const activeSubscriptions = data.subscriptions.filter((item) =>
     ["active", "trial"].includes(item.status),
   );
@@ -48,6 +50,14 @@ export default function DashboardPage() {
   ]
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 6);
+  const hasWorkingData =
+    data.projects.length + data.tools.length + data.relationships.length + data.subscriptions.length > 0;
+  const isEmptyWorkspace = !hasWorkingData && data.suggestions.length === 0;
+  const hasChangesSinceBackup = Boolean(
+    storageMeta?.savedAt &&
+      backupMeta?.exportedAt &&
+      new Date(storageMeta.savedAt).getTime() > new Date(backupMeta.exportedAt).getTime(),
+  );
 
   return (
     <div className="space-y-6">
@@ -57,6 +67,54 @@ export default function DashboardPage() {
           Manual reference view of projects, tools, subscriptions, and relationships.
         </p>
       </header>
+
+      {hasWorkingData && (!backupMeta || hasChangesSinceBackup) ? (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p>
+              {backupMeta
+                ? "Your StackMap data has changed since the last full backup."
+                : "Your StackMap data is stored locally in this browser profile. Export a full backup before relying on it long term."}
+            </p>
+            <Link
+              href="/settings"
+              className="rounded-md bg-amber-900 px-3 py-2 text-sm font-medium text-white hover:bg-amber-800"
+            >
+              Backup settings
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {isEmptyWorkspace ? (
+        <section className="rounded-lg border border-cyan-200 bg-cyan-50 p-5">
+          <h2 className="text-lg font-semibold text-slate-950">Start a private StackMap</h2>
+          <p className="mt-2 max-w-3xl text-sm text-slate-700">
+            This workspace is empty. Add your own projects and tools, import a backup, or load
+            sample data from Settings to explore how the map works.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/projects"
+              className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              Add projects
+            </Link>
+            <Link
+              href="/tools"
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Add tools
+            </Link>
+            <Link
+              href="/settings"
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Import or load sample data
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Projects" value={data.projects.length} detail="Manual records" icon={FolderKanban} href="/projects" />

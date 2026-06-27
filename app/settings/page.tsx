@@ -3,7 +3,7 @@
 import { Download, RotateCcw, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { BACKUP_VERSION } from "@/lib/constants";
-import { useStackMapData } from "@/lib/storage";
+import { useStackMapData, useStackMapStorageMeta, writeBackupMeta } from "@/lib/storage";
 import type { StackMapData } from "@/lib/types";
 
 type CsvCell = string | number | boolean | undefined;
@@ -39,6 +39,19 @@ function downloadText(filename: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
+function formatDateTime(value: string | undefined) {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function isStackMapData(value: unknown): value is StackMapData {
   const candidate = value as StackMapData;
   return Boolean(
@@ -67,28 +80,51 @@ export default function SettingsPage() {
   const {
     data,
     resetSampleData,
+    clearAllData,
     importData,
     clearSuggestions,
     resetIntegrationPlans,
   } = useStackMapData();
+  const { storageMeta, backupMeta, refreshStorageMeta } = useStackMapStorageMeta();
   const [importText, setImportText] = useState("");
   const [message, setMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportDate = new Date().toISOString().slice(0, 10);
+  const hasWorkingData =
+    data.projects.length + data.tools.length + data.relationships.length + data.subscriptions.length > 0;
+  const hasChangesSinceBackup = Boolean(
+    storageMeta?.savedAt &&
+      backupMeta?.exportedAt &&
+      new Date(storageMeta.savedAt).getTime() > new Date(backupMeta.exportedAt).getTime(),
+  );
 
   function exportJson() {
+    const exportedAt = new Date().toISOString();
+    const filename = `stackmap-full-backup-${exportDate}.json`;
     const backup: StackMapBackup = {
       app: "StackMap",
       version: BACKUP_VERSION,
-      exportedAt: new Date().toISOString(),
+      exportedAt,
       data,
     };
     downloadText(
-      `stackmap-full-backup-${exportDate}.json`,
+      filename,
       JSON.stringify(backup, null, 2),
       "application/json",
     );
-    setMessage("Exported full StackMap backup with version metadata.");
+    writeBackupMeta({
+      exportedAt,
+      filename,
+      origin: window.location.origin,
+      counts: {
+        projects: data.projects.length,
+        tools: data.tools.length,
+        relationships: data.relationships.length,
+        subscriptions: data.subscriptions.length,
+      },
+    });
+    refreshStorageMeta();
+    setMessage(`Exported full StackMap backup: ${filename}`);
   }
 
   function csvFiles() {
@@ -242,6 +278,7 @@ export default function SettingsPage() {
       }
       importData(backupData);
       setImportText("");
+      refreshStorageMeta();
       setMessage("Imported StackMap backup into localStorage.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Import failed.");
@@ -258,6 +295,24 @@ export default function SettingsPage() {
       </header>
 
       <section className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950 shadow-sm lg:col-span-2">
+          <h2 className="text-base font-semibold text-slate-950">Local-first storage</h2>
+          <div className="mt-2 grid gap-2 md:grid-cols-3">
+            <p>
+              StackMap data is saved in this browser profile on this device. It is not uploaded to
+              a StackMap server.
+            </p>
+            <p>
+              Tabs and windows in this same browser profile stay in sync. Other browsers,
+              profiles, and computers need a backup import.
+            </p>
+            <p>
+              Export a full backup before major changes, browser cleanup, or moving data to
+              another device.
+            </p>
+          </div>
+        </div>
+
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
           <h2 className="text-base font-semibold text-slate-950">Local Data Health</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-8">
@@ -277,6 +332,42 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Last Local Save
+              </p>
+              <p className="mt-1 text-sm font-medium text-slate-900">
+                {formatDateTime(storageMeta?.savedAt)}
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Last Full Backup
+              </p>
+              <p className="mt-1 text-sm font-medium text-slate-900">
+                {formatDateTime(backupMeta?.exportedAt)}
+              </p>
+              {backupMeta?.filename ? (
+                <p className="mt-1 truncate text-xs text-slate-500">{backupMeta.filename}</p>
+              ) : null}
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Storage Scope
+              </p>
+              <p className="mt-1 text-sm font-medium text-slate-900">
+                This browser profile only
+              </p>
+            </div>
+          </div>
+          {hasWorkingData && (!backupMeta || hasChangesSinceBackup) ? (
+            <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {backupMeta
+                ? "Your local data has changed since the last full backup. Export a new backup before major changes."
+                : "No full backup has been recorded in this browser. Export a backup so your StackMap work is not only stored in local browser data."}
+            </p>
+          ) : null}
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -291,15 +382,33 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => {
-                if (window.confirm("Reset all local StackMap data to sample data?")) {
+                if (window.confirm("Replace current local StackMap data with sample/demo data? Export a full backup first if you want to keep this work.")) {
                   resetSampleData();
-                  setMessage("Sample data reset in localStorage.");
+                  refreshStorageMeta();
+                  setMessage("Loaded sample data into localStorage.");
                 }
               }}
               className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
             >
               <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              Reset Sample Data
+              Load Sample Data
+            </button>
+            <button
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Clear all local StackMap data in this browser profile? Export a full backup first if you want to keep this work.",
+                  )
+                ) {
+                  clearAllData();
+                  refreshStorageMeta();
+                  setMessage("Cleared all local StackMap data in this browser profile.");
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              Clear Local Data
             </button>
             <button
               onClick={() => {

@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { STORAGE_KEY, STORAGE_META_KEY, STORAGE_RECOVERY_KEY } from "./constants";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  STORAGE_BACKUP_META_KEY,
+  STORAGE_KEY,
+  STORAGE_META_KEY,
+  STORAGE_RECOVERY_KEY,
+} from "./constants";
 import { seedData } from "./seed";
 import type {
   DuplicateDecision,
@@ -18,6 +23,75 @@ import { createId, timestamp } from "./utils";
 
 function cloneSeed(): StackMapData {
   return JSON.parse(JSON.stringify(seedData)) as StackMapData;
+}
+
+const STACKMAP_STORAGE_EVENT = "stackmap-storage-updated";
+
+function emptyData(): StackMapData {
+  return {
+    projects: [],
+    tools: [],
+    relationships: [],
+    subscriptions: [],
+    suggestions: [],
+    integrationPlans: [],
+    duplicateDecisions: [],
+  };
+}
+
+export type LocalDataCounts = {
+  projects: number;
+  tools: number;
+  relationships: number;
+  subscriptions: number;
+};
+
+export type LocalStorageMeta = {
+  savedAt: string;
+  origin: string;
+  counts: LocalDataCounts;
+};
+
+export type BackupMeta = {
+  exportedAt: string;
+  filename: string;
+  origin: string;
+  counts: LocalDataCounts;
+};
+
+function dataCounts(data: StackMapData): LocalDataCounts {
+  return {
+    projects: data.projects.length,
+    tools: data.tools.length,
+    relationships: data.relationships.length,
+    subscriptions: data.subscriptions.length,
+  };
+}
+
+function readJson<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+
+  const value = window.localStorage.getItem(key);
+  if (!value) return null;
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+export function readStorageMeta() {
+  return readJson<LocalStorageMeta>(STORAGE_META_KEY);
+}
+
+export function readBackupMeta() {
+  return readJson<BackupMeta>(STORAGE_BACKUP_META_KEY);
+}
+
+export function writeBackupMeta(meta: BackupMeta) {
+  window.localStorage.setItem(STORAGE_BACKUP_META_KEY, JSON.stringify(meta));
+  window.dispatchEvent(new Event(STACKMAP_STORAGE_EVENT));
 }
 
 function combineNotes(keepNotes: string, removeNotes: string) {
@@ -122,15 +196,15 @@ function normalizeData(
 }
 
 function loadData(): StackMapData {
-  if (typeof window === "undefined") return cloneSeed();
+  if (typeof window === "undefined") return emptyData();
 
   const stored = window.localStorage.getItem(STORAGE_KEY);
   const recovery = window.localStorage.getItem(STORAGE_RECOVERY_KEY);
 
   if (!stored && !recovery) {
-    const seeded = cloneSeed();
-    saveData(seeded);
-    return seeded;
+    const initialData = emptyData();
+    saveData(initialData);
+    return initialData;
   }
 
   const parseSource = (source: string | null) => {
@@ -140,12 +214,12 @@ function loadData(): StackMapData {
   };
 
   try {
-    return parseSource(stored) ?? parseSource(recovery) ?? cloneSeed();
+    return parseSource(stored) ?? parseSource(recovery) ?? emptyData();
   } catch {
     try {
-      return parseSource(recovery) ?? cloneSeed();
+      return parseSource(recovery) ?? emptyData();
     } catch {
-      return cloneSeed();
+      return emptyData();
     }
   }
 }
@@ -160,25 +234,59 @@ function saveData(data: StackMapData) {
     JSON.stringify({
       savedAt,
       origin: window.location.origin,
-      counts: {
-        projects: data.projects.length,
-        tools: data.tools.length,
-        relationships: data.relationships.length,
-        subscriptions: data.subscriptions.length,
-      },
+      counts: dataCounts(data),
     }),
   );
+  window.dispatchEvent(new Event(STACKMAP_STORAGE_EVENT));
+}
+
+export function useStackMapStorageMeta() {
+  const [storageMeta, setStorageMeta] = useState<LocalStorageMeta | null>(() => readStorageMeta());
+  const [backupMeta, setBackupMeta] = useState<BackupMeta | null>(() => readBackupMeta());
+
+  function refreshStorageMeta() {
+    setStorageMeta(readStorageMeta());
+    setBackupMeta(readBackupMeta());
+  }
+
+  useEffect(() => {
+    function handleStorageEvent(event: StorageEvent) {
+      if (
+        event.key &&
+        event.key !== STORAGE_META_KEY &&
+        event.key !== STORAGE_BACKUP_META_KEY &&
+        event.key !== STORAGE_KEY
+      ) {
+        return;
+      }
+
+      refreshStorageMeta();
+    }
+
+    window.addEventListener(STACKMAP_STORAGE_EVENT, refreshStorageMeta);
+    window.addEventListener("storage", handleStorageEvent);
+
+    return () => {
+      window.removeEventListener(STACKMAP_STORAGE_EVENT, refreshStorageMeta);
+      window.removeEventListener("storage", handleStorageEvent);
+    };
+  }, []);
+
+  return { storageMeta, backupMeta, refreshStorageMeta };
 }
 
 export function useStackMapData() {
-  const [data, setData] = useState<StackMapData>(() => cloneSeed());
+  const [data, setData] = useState<StackMapData>(() => emptyData());
   const [isReady, setIsReady] = useState(false);
+  const lastSerializedData = useRef("");
 
   useEffect(() => {
     let isCancelled = false;
     window.setTimeout(() => {
       if (isCancelled) return;
-      setData(loadData());
+      const loadedData = loadData();
+      lastSerializedData.current = JSON.stringify(loadedData);
+      setData(loadedData);
       setIsReady(true);
     }, 0);
 
@@ -189,8 +297,37 @@ export function useStackMapData() {
 
   useEffect(() => {
     if (!isReady) return;
+    const serialized = JSON.stringify(data);
+    if (lastSerializedData.current === serialized) return;
+    lastSerializedData.current = serialized;
     saveData(data);
   }, [data, isReady]);
+
+  useEffect(() => {
+    function handleStorageEvent(event: StorageEvent) {
+      if (event.key !== STORAGE_KEY || !event.newValue) return;
+
+      try {
+        const parsed = JSON.parse(event.newValue);
+        if (!isStackMapData(parsed)) return;
+
+        const nextData = normalizeData(parsed);
+        const serialized = JSON.stringify(nextData);
+        if (lastSerializedData.current === serialized) return;
+
+        lastSerializedData.current = serialized;
+        setData(nextData);
+      } catch {
+        return;
+      }
+    }
+
+    window.addEventListener("storage", handleStorageEvent);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageEvent);
+    };
+  }, []);
 
   const actions = useMemo(
     () => ({
@@ -576,6 +713,9 @@ export function useStackMapData() {
       },
       resetSampleData() {
         setData(cloneSeed());
+      },
+      clearAllData() {
+        setData(emptyData());
       },
       importData(nextData: StackMapData) {
         if (!isStackMapData(nextData)) {

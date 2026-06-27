@@ -1,36 +1,111 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# StackMap
 
-## Getting Started
+StackMap is a local-first reference tool for mapping the projects, tools, accounts, subscriptions, deployments, and dependencies behind apps and websites.
 
-First, run the development server:
+It is designed for builders who need a private place to answer questions like:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- What tools does this project use?
+- Where is it deployed?
+- What accounts does it publish to?
+- What subscriptions support it?
+- What dependencies need review?
+
+## Product Direction
+
+StackMap is manual-first and local-first.
+
+The current app runs as a local web app. The longer-term goal is to make it available as a downloadable desktop tool, with the KeyMatch Pro site acting as a public place where people can discover and download it.
+
+StackMap is not currently intended to be a SaaS product. External integrations are not the priority. If integrations are added later, they should be read-only, explicit, and suggestion-based.
+
+## Local Data Behavior
+
+Current storage:
+
+- Data is saved in this browser profile using localStorage.
+- Tabs and windows in the same browser profile stay in sync.
+- Different browsers, browser profiles, and computers do not automatically sync.
+- A full backup JSON file is the safest way to move or preserve data.
+
+Important:
+
+- Browser cleanup can remove local data.
+- Private/incognito browser windows use separate temporary storage.
+- Export a full backup before major changes or before clearing browser data.
+
+The future desktop version should store data locally in an app-owned data file or local database rather than relying on browser localStorage.
+
+## Privacy Promise
+
+StackMap should keep this default promise:
+
+> Your StackMap data stays on your device unless you choose to export or share it.
+
+The app should not store raw API keys, access tokens, refresh tokens, or secrets in app data, backups, logs, screenshots, or sample records.
+
+## Running Locally
+
+Install dependencies:
+
+```powershell
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Start the local app:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```powershell
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open:
 
-## Learn More
+```text
+http://localhost:3000/map
+```
 
-To learn more about Next.js, take a look at the following resources:
+Leave the terminal running while using the app.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Backups
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Use `Settings -> Export Full Backup` to download a full JSON backup.
 
-## Deploy on Vercel
+Use `Settings -> Import Full Backup` to restore or move data into another browser profile.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The app tracks the last local save and last full backup in Settings. If data has changed since the last backup, StackMap shows a reminder.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Sample Data
+
+New local workspaces start empty.
+
+Use `Settings -> Load Sample Data` to explore the app with demo records. Loading sample data replaces current local data, so export a backup first if you want to keep existing work.
+
+Public demo data should be curated and sanitized before release. Do not publish raw working data without removing private URLs, account IDs, sensitive notes, billing details, or anything security-sensitive.
+
+## Verification
+
+Before committing feature work, run:
+
+```powershell
+npx tsc --noEmit
+npm run lint
+npm run build
+```
+
+## Current Stack
+
+- Next.js App Router
+- React
+- TypeScript
+- Tailwind CSS
+- React Flow
+- Browser localStorage
+
+## Non-Goals For Now
+
+- Required user accounts.
+- Hosted user database.
+- Mobile sync.
+- Billing.
+- Team permissions.
+- Deep external integrations.
+- Automatic confirmation of detected tools or relationships.

@@ -13,6 +13,7 @@ import type {
 export const STORAGE_KEY = "stackmap.mvp.data.v1";
 export const STORAGE_RECOVERY_KEY = "stackmap.mvp.data.v1.recovery";
 export const STORAGE_META_KEY = "stackmap.mvp.data.v1.meta";
+export const STORAGE_BACKUP_META_KEY = "stackmap.mvp.data.v1.backupMeta";
 export const BACKUP_VERSION = 1;
 
 export const PROJECT_TYPES: ProjectType[] = [
