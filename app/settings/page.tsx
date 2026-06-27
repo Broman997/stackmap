@@ -11,7 +11,17 @@ type StackMapBackup = {
   app: "StackMap";
   version: number;
   exportedAt: string;
+  source: {
+    storage: "browser-localStorage";
+    origin: string;
+  };
   data: StackMapData;
+};
+type ImportPreview = {
+  data: StackMapData;
+  exportedAt?: string;
+  filename?: string;
+  source: "file" | "pasted";
 };
 
 function csvEscape(value: CsvCell) {
@@ -52,6 +62,10 @@ function formatDateTime(value: string | undefined) {
   }).format(date);
 }
 
+function filenameTimestamp(value = new Date()) {
+  return value.toISOString().replaceAll(":", "-").replace(/\.\d{3}Z$/, "Z");
+}
+
 function isStackMapData(value: unknown): value is StackMapData {
   const candidate = value as StackMapData;
   return Boolean(
@@ -65,15 +79,28 @@ function isStackMapData(value: unknown): value is StackMapData {
   );
 }
 
-function getBackupData(value: unknown) {
+function getBackupPreviewData(value: unknown) {
   const backup = value as Partial<StackMapBackup>;
   if (backup.app === "StackMap" && backup.version === BACKUP_VERSION && isStackMapData(backup.data)) {
-    return backup.data;
+    return {
+      data: backup.data,
+      exportedAt: backup.exportedAt,
+    };
   }
   if (isStackMapData(value)) {
-    return value;
+    return { data: value };
   }
   throw new Error("Backup must be a StackMap full backup or current StackMap data JSON.");
+}
+
+function countRecords(data: StackMapData) {
+  return {
+    projects: data.projects.length,
+    tools: data.tools.length,
+    relationships: data.relationships.length,
+    subscriptions: data.subscriptions.length,
+    suggestions: data.suggestions.length,
+  };
 }
 
 export default function SettingsPage() {
@@ -87,9 +114,9 @@ export default function SettingsPage() {
   } = useStackMapData();
   const { storageMeta, backupMeta, refreshStorageMeta } = useStackMapStorageMeta();
   const [importText, setImportText] = useState("");
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [message, setMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const exportDate = new Date().toISOString().slice(0, 10);
   const hasWorkingData =
     data.projects.length + data.tools.length + data.relationships.length + data.subscriptions.length > 0;
   const hasChangesSinceBackup = Boolean(
@@ -99,12 +126,17 @@ export default function SettingsPage() {
   );
 
   function exportJson() {
-    const exportedAt = new Date().toISOString();
-    const filename = `stackmap-full-backup-${exportDate}.json`;
+    const exportedDate = new Date();
+    const exportedAt = exportedDate.toISOString();
+    const filename = `stackmap-full-backup-${filenameTimestamp(exportedDate)}.json`;
     const backup: StackMapBackup = {
       app: "StackMap",
       version: BACKUP_VERSION,
       exportedAt,
+      source: {
+        storage: "browser-localStorage",
+        origin: window.location.origin,
+      },
       data,
     };
     downloadText(
@@ -249,7 +281,7 @@ export default function SettingsPage() {
   function exportCsv(kind: keyof ReturnType<typeof csvFiles>) {
     const files = csvFiles();
     downloadText(
-      `stackmap-${kind}-${exportDate}.csv`,
+      `stackmap-${kind}-${filenameTimestamp()}.csv`,
       files[kind],
       "text/csv;charset=utf-8",
     );
@@ -262,27 +294,53 @@ export default function SettingsPage() {
       .map(([name, content]) => `# ${name}\r\n${content}`)
       .join("\r\n\r\n");
     downloadText(
-      `stackmap-all-csv-${exportDate}.txt`,
+      `stackmap-all-csv-${filenameTimestamp()}.txt`,
       sections,
       "text/plain;charset=utf-8",
     );
     setMessage("Exported all CSV sections in one text file.");
   }
 
-  function importJson(text: string) {
+  function previewImport(text: string, source: ImportPreview["source"], filename?: string) {
     try {
       const parsed = JSON.parse(text);
-      const backupData = getBackupData(parsed);
-      if (!window.confirm("Importing this backup will replace current local StackMap data. Continue?")) {
-        return;
-      }
-      importData(backupData);
-      setImportText("");
-      refreshStorageMeta();
-      setMessage("Imported StackMap backup into localStorage.");
+      const backupData = getBackupPreviewData(parsed);
+      setImportPreview({
+        ...backupData,
+        filename,
+        source,
+      });
+      setMessage("Backup parsed. Review the import preview before replacing local data.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Import failed.");
+      setImportPreview(null);
+      setMessage(error instanceof Error ? error.message : "Backup preview failed.");
     }
+  }
+
+  function confirmImport() {
+    if (!importPreview) return;
+    if (!confirmRiskyLocalChange("Replace current local StackMap data with this backup?")) return;
+
+    importData(importPreview.data);
+    setImportText("");
+    setImportPreview(null);
+    refreshStorageMeta();
+    setMessage("Imported StackMap backup into localStorage.");
+  }
+
+  const currentCounts = countRecords(data);
+  const importCounts = importPreview ? countRecords(importPreview.data) : null;
+
+  function confirmRiskyLocalChange(action: string) {
+    if (!hasWorkingData || (backupMeta && !hasChangesSinceBackup)) {
+      return window.confirm(action);
+    }
+
+    const backupWarning = backupMeta
+      ? "Your local data has changed since the last full backup."
+      : "No full backup has been recorded for this local data.";
+
+    return window.confirm(`${backupWarning}\n\n${action}\n\nContinue without exporting a new full backup?`);
   }
 
   return (
@@ -382,7 +440,7 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => {
-                if (window.confirm("Replace current local StackMap data with sample/demo data? Export a full backup first if you want to keep this work.")) {
+                if (confirmRiskyLocalChange("Replace current local StackMap data with sample/demo data?")) {
                   resetSampleData();
                   refreshStorageMeta();
                   setMessage("Loaded sample data into localStorage.");
@@ -396,8 +454,8 @@ export default function SettingsPage() {
             <button
               onClick={() => {
                 if (
-                  window.confirm(
-                    "Clear all local StackMap data in this browser profile? Export a full backup first if you want to keep this work.",
+                  confirmRiskyLocalChange(
+                    "Clear all local StackMap data in this browser profile?",
                   )
                 ) {
                   clearAllData();
@@ -412,7 +470,7 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => {
-                if (window.confirm("Clear all local suggestions? Confirmed projects/tools will remain.")) {
+                if (confirmRiskyLocalChange("Clear all local suggestions? Confirmed projects/tools will remain.")) {
                   clearSuggestions();
                   setMessage("Cleared local suggestions.");
                 }
@@ -423,7 +481,7 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => {
-                if (window.confirm("Reset integration plans to the default planned list?")) {
+                if (confirmRiskyLocalChange("Reset integration plans to the default planned list?")) {
                   resetIntegrationPlans();
                   setMessage("Integration plans reset.");
                 }
@@ -480,18 +538,66 @@ export default function SettingsPage() {
             onChange={async (event) => {
               const file = event.target.files?.[0];
               if (!file) return;
-              importJson(await file.text());
+              previewImport(await file.text(), "file", file.name);
               if (fileInputRef.current) fileInputRef.current.value = "";
             }}
           />
           <button
-            onClick={() => importJson(importText)}
+            onClick={() => previewImport(importText, "pasted")}
             disabled={!importText.trim()}
             className="mt-3 inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             <Upload className="h-4 w-4" aria-hidden="true" />
-            Import Pasted Backup
+            Preview Pasted Backup
           </button>
+          {importPreview && importCounts ? (
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-950">Import Preview</h3>
+                  <p className="mt-1 text-sm text-amber-900">
+                    This backup will replace current local data in this browser profile.
+                  </p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    Source: {importPreview.filename ?? importPreview.source}
+                    {importPreview.exportedAt
+                      ? ` / Exported ${formatDateTime(importPreview.exportedAt)}`
+                      : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={confirmImport}
+                    className="rounded-md bg-amber-900 px-3 py-2 text-sm font-medium text-white hover:bg-amber-800"
+                  >
+                    Replace Local Data
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImportPreview(null)}
+                    className="rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-5">
+                {(["projects", "tools", "relationships", "subscriptions", "suggestions"] as const).map(
+                  (key) => (
+                    <div key={key} className="rounded-md bg-white px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {key}
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">
+                        {currentCounts[key]} -&gt; {importCounts[key]}
+                      </p>
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
 
