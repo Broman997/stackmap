@@ -12,7 +12,6 @@ import type {
   DuplicateDecision,
   DuplicateDecisionStatus,
   Project,
-  IntegrationPlan,
   Relationship,
   StackMapData,
   Suggestion,
@@ -34,7 +33,6 @@ function emptyData(): StackMapData {
     relationships: [],
     subscriptions: [],
     suggestions: [],
-    integrationPlans: [],
     duplicateDecisions: [],
   };
 }
@@ -163,9 +161,9 @@ function filterDecisionsForRemovedRecord(
 
 function isStackMapData(value: unknown): value is Omit<
   StackMapData,
-  "suggestions" | "integrationPlans" | "duplicateDecisions"
+  "suggestions" | "duplicateDecisions"
 > &
-  Partial<Pick<StackMapData, "suggestions" | "integrationPlans" | "duplicateDecisions">> {
+  Partial<Pick<StackMapData, "suggestions" | "duplicateDecisions">> {
   const candidate = value as StackMapData;
   return Boolean(
     candidate &&
@@ -177,10 +175,10 @@ function isStackMapData(value: unknown): value is Omit<
 }
 
 function normalizeData(
-  value: Omit<StackMapData, "suggestions" | "integrationPlans" | "duplicateDecisions"> &
-    Partial<Pick<StackMapData, "suggestions" | "integrationPlans" | "duplicateDecisions">>,
+  value: Omit<StackMapData, "suggestions" | "duplicateDecisions"> &
+    Partial<Pick<StackMapData, "suggestions" | "duplicateDecisions">>,
 ): StackMapData {
-  return {
+  const normalizedData: StackMapData = {
     projects: value.projects,
     tools: value.tools,
     relationships: value.relationships,
@@ -189,9 +187,21 @@ function normalizeData(
     duplicateDecisions: Array.isArray(value.duplicateDecisions)
       ? value.duplicateDecisions
       : [],
-    integrationPlans: Array.isArray(value.integrationPlans)
-      ? value.integrationPlans
-      : cloneSeed().integrationPlans,
+  };
+
+  return {
+    ...normalizedData,
+    tools: normalizedData.tools.map((tool) =>
+      tool.name === "Apple Developer" && tool.renewalDate === "2026-09-01"
+        ? { ...tool, renewalDate: "2026-08-31" }
+        : tool,
+    ),
+    subscriptions: normalizedData.subscriptions.map((subscription) =>
+      subscription.vendorName === "Apple Developer" &&
+      subscription.nextRenewalDate === "2026-09-01"
+        ? { ...subscription, nextRenewalDate: "2026-08-31" }
+        : subscription,
+    ),
   };
 }
 
@@ -692,24 +702,6 @@ export function useStackMapData() {
             ),
           };
         });
-      },
-      updateIntegrationPlan(
-        id: string,
-        plan: Pick<IntegrationPlan, "status" | "notes">,
-      ) {
-        const now = timestamp();
-        setData((current) => ({
-          ...current,
-          integrationPlans: current.integrationPlans.map((item) =>
-            item.id === id ? { ...item, ...plan, updatedAt: now } : item,
-          ),
-        }));
-      },
-      resetIntegrationPlans() {
-        setData((current) => ({
-          ...current,
-          integrationPlans: cloneSeed().integrationPlans,
-        }));
       },
       resetSampleData() {
         setData(cloneSeed());

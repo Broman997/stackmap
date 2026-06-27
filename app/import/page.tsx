@@ -196,7 +196,7 @@ export default function ImportPage() {
 
       parsed.suggestions.forEach((suggestion) => {
         addSuggestion({
-          source: suggestion.source,
+          source: "manual_import",
           entityType: suggestion.entityType,
           status: suggestion.status,
           confidence: suggestion.confidence,
@@ -269,7 +269,7 @@ export default function ImportPage() {
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-base font-semibold text-slate-950">Import Suggestion JSON</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Use this for generated files like <span className="font-mono">generated/github-suggestions.json</span>.
+          Use this for generated or hand-prepared StackMap suggestion JSON files.
           Imported rows still go to Suggestions for manual approval.
         </p>
         <label className="mt-4 flex max-w-xl cursor-pointer items-center gap-3 rounded-md border border-dashed border-slate-300 px-4 py-4 text-sm text-slate-600 hover:bg-slate-50">

@@ -47,7 +47,7 @@ This means:
 - Manual CRUD for projects, tools, subscriptions, and relationships.
 - Visual map using React Flow.
 - Search, review-needed workflow, detail pages, CSV export, backup export/import, and import suggestions.
-- Local-only mock integration runs and integration planning records.
+- Manual suggestion import and review before anything becomes confirmed data.
 
 ## Near-Term Priorities
 

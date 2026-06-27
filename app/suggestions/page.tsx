@@ -357,7 +357,7 @@ export default function SuggestionsPage() {
       <header>
         <h1 className="text-2xl font-semibold text-slate-950">Suggestions</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Review staged detections before anything becomes a confirmed StackMap record.
+          Review staged manual imports before anything becomes a confirmed StackMap record.
         </p>
       </header>
 

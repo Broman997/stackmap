@@ -1,6 +1,4 @@
 import type {
-  IntegrationSource,
-  IntegrationStatus,
   PaidStatus,
   ProjectStatus,
   ProjectType,
@@ -75,19 +73,3 @@ export const SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
 ];
 
 export const DEFAULT_CURRENCY = "USD";
-
-export const INTEGRATION_SOURCES: IntegrationSource[] = [
-  "github",
-  "supabase",
-  "app_store",
-  "google_play",
-  "gmail",
-  "payment",
-  "airtable",
-];
-
-export const INTEGRATION_STATUSES: IntegrationStatus[] = [
-  "planned",
-  "ready_later",
-  "disabled",
-];

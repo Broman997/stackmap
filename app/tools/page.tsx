@@ -68,7 +68,13 @@ export default function ToolsPage() {
 
       {(isAdding || editing) && (
         <ToolForm
+          key={editing ? editing.id : "new-tool"}
+          existingTools={data.tools}
           initialValue={editing ?? undefined}
+          onSelectExistingTool={(tool) => {
+            setEditing(tool);
+            setIsAdding(false);
+          }}
           onCancel={() => {
             setIsAdding(false);
             setEditing(null);

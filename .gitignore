@@ -35,6 +35,9 @@ dev-server.err.log
 # local generated suggestion exports
 /generated/
 
+# local user backups
+/backups/
+
 # env files (can opt-in for committing if needed)
 .env*
 

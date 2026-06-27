@@ -38,23 +38,11 @@ export type RelationshipType =
   | "other";
 
 export type SubscriptionStatus = "active" | "trial" | "cancelled" | "unknown";
-export type SuggestionSource =
-  | "manual_import"
-  | "local_scan"
-  | "github"
-  | "supabase"
-  | "app_store"
-  | "google_play"
-  | "gmail"
-  | "payment"
-  | "airtable";
+export type SuggestionSource = "manual_import";
 export type SuggestionEntityType = "project" | "tool" | "relationship" | "subscription";
 export type SuggestionStatus = "pending" | "accepted" | "dismissed";
 export type SuggestionFieldValue = string | number | boolean | null;
-export type IntegrationSource = Exclude<SuggestionSource, "manual_import" | "local_scan">;
-export type IntegrationStatus = "planned" | "ready_later" | "disabled";
-export type IntegrationAccessMode = "read_only";
-export type RecordSource = "manual" | "mock" | SuggestionSource;
+export type RecordSource = "manual" | SuggestionSource;
 export type DuplicateDecisionStatus =
   | "merge_records"
   | "same_thing"
@@ -139,18 +127,6 @@ export type Suggestion = {
   updatedAt: string;
 };
 
-export type IntegrationPlan = {
-  id: string;
-  name: string;
-  source: IntegrationSource;
-  status: IntegrationStatus;
-  accessMode: IntegrationAccessMode;
-  approvalRequired: boolean;
-  notes: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type DuplicateDecision = {
   id: string;
   duplicateGroupId: string;
@@ -167,6 +143,5 @@ export type StackMapData = {
   relationships: Relationship[];
   subscriptions: Subscription[];
   suggestions: Suggestion[];
-  integrationPlans: IntegrationPlan[];
   duplicateDecisions: DuplicateDecision[];
 };
