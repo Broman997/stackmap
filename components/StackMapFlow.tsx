@@ -232,6 +232,15 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
   const [filter, setFilter] = useState<MapFilter>("projects");
   const [relTypeFilter, setRelTypeFilter] = useState<RelationshipType | "all">("all");
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [tooltipNotes, setTooltipNotes] = useState<string | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  function handleCanvasMouseMove(event: React.MouseEvent) {
+    if (tooltipRef.current && tooltipNotes) {
+      tooltipRef.current.style.left = `${event.clientX + 14}px`;
+      tooltipRef.current.style.top = `${event.clientY - 10}px`;
+    }
+  }
 
   const connectedIds = useMemo(() => {
     const ids = new Set<string>();
@@ -680,6 +689,15 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
           setFocusedProjectIds([node.id]);
         }
       }}
+      onNodeMouseEnter={(event, node) => {
+        if (!node.data.notes || node.data.kind === "Relationship") return;
+        setTooltipNotes(node.data.notes);
+        if (tooltipRef.current) {
+          tooltipRef.current.style.left = `${event.clientX + 14}px`;
+          tooltipRef.current.style.top = `${event.clientY - 10}px`;
+        }
+      }}
+      onNodeMouseLeave={() => setTooltipNotes(null)}
       proOptions={{ hideAttribution: true }}
     >
       <Background />
@@ -687,25 +705,37 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
     </ReactFlow>
   );
 
+  const tooltipOverlay = tooltipNotes ? (
+    <div
+      ref={tooltipRef}
+      className="fixed z-[100] max-w-xs pointer-events-none rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-lg text-sm text-slate-700 whitespace-pre-wrap"
+      style={{ left: 0, top: 0 }}
+    >
+      {tooltipNotes}
+    </div>
+  ) : null;
+
   if (isFullScreen) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col gap-3 overflow-auto bg-slate-50 p-4">
+      <div className="fixed inset-0 z-50 flex flex-col gap-3 overflow-auto bg-slate-50 p-4" onMouseMove={handleCanvasMouseMove}>
         {filterPanel}
         {selectedSummary}
         <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           {canvas}
         </div>
+        {tooltipOverlay}
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onMouseMove={handleCanvasMouseMove}>
       {filterPanel}
       {selectedSummary}
       <div className="h-[calc(100vh-18rem)] min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {canvas}
       </div>
+      {tooltipOverlay}
     </div>
   );
 }
