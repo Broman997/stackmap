@@ -7,7 +7,7 @@ export const seedData: StackMapData = {
     {
       id: "demo-project-logit",
       name: "LogIT",
-      type: "iOS app",
+      type: "mobile app",
       status: "active",
       notes:
         "Demo mobile app record. This sample shows why a private dependency map is useful for tracking stores, databases, AI tools, ads, subscriptions, and deployments.",
@@ -17,7 +17,7 @@ export const seedData: StackMapData = {
     {
       id: "demo-project-keymatch-pro",
       name: "KeyMatch Pro",
-      type: "iOS app",
+      type: "mobile app",
       status: "active",
       notes:
         "Demo app record based on a realistic indie-builder workflow. Public sample data only; no private account details are included.",

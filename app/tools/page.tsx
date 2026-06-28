@@ -1,7 +1,8 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { EntityTable, type TableColumn } from "@/components/EntityTable";
 import { ToolForm } from "@/components/ToolForm";
 import { PAID_STATUSES, TOOL_CATEGORIES, TOOL_STATUSES } from "@/lib/constants";
@@ -10,18 +11,50 @@ import type { Tool } from "@/lib/types";
 import { formatCurrency, formatDate, getToolReviewItems } from "@/lib/utils";
 
 export default function ToolsPage() {
+  return (
+    <Suspense fallback={<ToolsPageLoading />}>
+      <ToolsPageContent />
+    </Suspense>
+  );
+}
+
+function ToolsPageLoading() {
+  return (
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-semibold text-slate-950">Tools</h1>
+        <p className="mt-1 text-sm text-slate-600">Loading tools...</p>
+      </header>
+    </div>
+  );
+}
+
+function ToolsPageContent() {
+  const searchParams = useSearchParams();
+  return <ToolsPageState key={searchParams.toString()} searchParams={searchParams} />;
+}
+
+function ToolsPageState({ searchParams }: { searchParams: URLSearchParams }) {
   const { data, addTool, updateTool, deleteTool } = useStackMapData();
   const [isAdding, setIsAdding] = useState(false);
   const [editing, setEditing] = useState<Tool | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [paidFilter, setPaidFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState(() =>
+    getQueryFilter(searchParams, "category", TOOL_CATEGORIES),
+  );
+  const [statusFilter, setStatusFilter] = useState(() =>
+    getQueryFilter(searchParams, "status", TOOL_STATUSES),
+  );
+  const [paidFilter, setPaidFilter] = useState(() =>
+    getQueryFilter(searchParams, "paid", PAID_STATUSES),
+  );
+  const [costFilter, setCostFilter] = useState(() => getCostFilter(searchParams));
 
   const filteredTools = data.tools.filter(
     (tool) =>
       (categoryFilter === "all" || tool.category === categoryFilter) &&
       (statusFilter === "all" || tool.status === statusFilter) &&
-      (paidFilter === "all" || tool.paidStatus === paidFilter),
+      (paidFilter === "all" || tool.paidStatus === paidFilter) &&
+      (costFilter === "all" || tool.monthlyCost > 0 || tool.annualCost > 0),
   );
 
   const columns: TableColumn<Tool>[] = [
@@ -60,7 +93,7 @@ export default function ToolsPage() {
           <h1 className="text-2xl font-semibold text-slate-950">Tools</h1>
           <p className="mt-1 text-sm text-slate-600">Track services, apps, accounts, and tool notes manually.</p>
         </div>
-        <button onClick={() => setIsAdding(true)} className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+        <button onClick={() => setIsAdding(true)} className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
           <Plus className="h-4 w-4" aria-hidden="true" />
           Add Tool
         </button>
@@ -116,6 +149,13 @@ export default function ToolsPage() {
             ))}
           </select>
         </label>
+        <label className="grid gap-1 text-sm font-medium text-slate-700">
+          Cost
+          <select value={costFilter} onChange={(event) => setCostFilter(event.target.value)} className="rounded-md border border-slate-300 px-3 py-2 font-normal">
+            <option value="all">All costs</option>
+            <option value="tracked">Costs entered</option>
+          </select>
+        </label>
         <p className="text-sm text-slate-500">
           Showing {filteredTools.length} of {data.tools.length}
         </p>
@@ -136,4 +176,17 @@ export default function ToolsPage() {
       />
     </div>
   );
+}
+
+function getQueryFilter(
+  searchParams: URLSearchParams,
+  key: string,
+  allowedValues: readonly string[],
+) {
+  const value = searchParams.get(key);
+  return value && allowedValues.includes(value) ? value : "all";
+}
+
+function getCostFilter(searchParams: URLSearchParams) {
+  return searchParams.get("cost") === "tracked" ? "tracked" : "all";
 }

@@ -62,7 +62,7 @@ export default function ProjectDetailPage() {
             <button
               type="button"
               onClick={() => markProjectReviewed(project.id)}
-              className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
             >
               <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
               Mark Reviewed
@@ -93,7 +93,7 @@ export default function ProjectDetailPage() {
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Source URL</dt>
                 <dd className="min-w-0 text-right font-medium text-slate-900">
-                  <a href={project.sourceUrl} target="_blank" rel="noreferrer" className="break-all text-cyan-700 hover:text-cyan-900">
+                  <a href={project.sourceUrl} target="_blank" rel="noreferrer" className="break-all text-indigo-600 hover:text-indigo-800">
                     {project.sourceName || project.sourceUrl}
                   </a>
                 </dd>

@@ -48,7 +48,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-semibold text-slate-950">Projects</h1>
           <p className="mt-1 text-sm text-slate-600">Add, edit, and remove manual project records.</p>
         </div>
-        <button onClick={() => setIsAdding(true)} className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+        <button onClick={() => setIsAdding(true)} className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
           <Plus className="h-4 w-4" aria-hidden="true" />
           Add Project
         </button>
@@ -56,6 +56,7 @@ export default function ProjectsPage() {
 
       {(isAdding || editing) && (
         <ProjectForm
+          key={editing ? editing.id : "new-project"}
           initialValue={editing ?? undefined}
           onCancel={() => {
             setIsAdding(false);

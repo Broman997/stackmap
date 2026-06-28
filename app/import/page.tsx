@@ -75,6 +75,13 @@ function inferKind(text: string): SuggestionKind {
 
 function inferProjectType(text: string): ProjectType {
   const lower = text.toLowerCase();
+  if (
+    lower.includes("mobile") ||
+    (lower.includes("ios") && lower.includes("android")) ||
+    (lower.includes("apple") && lower.includes("google play"))
+  ) {
+    return "mobile app";
+  }
   if (lower.includes("ios")) return "iOS app";
   if (lower.includes("android")) return "Android app";
   if (lower.includes("website") || lower.includes("site")) return "website";
@@ -240,7 +247,7 @@ export default function ImportPage() {
             type="button"
             onClick={stageSuggestions}
             disabled={!sourceText.trim()}
-            className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             <Wand2 className="h-4 w-4" aria-hidden="true" />
             Save to Suggestions
@@ -322,7 +329,7 @@ export default function ImportPage() {
       </section>
 
       {message ? (
-        <p className="rounded-md border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
+        <p className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
           {message}
         </p>
       ) : null}

@@ -15,37 +15,65 @@ function monthlyEquivalent(amount: number, cycle: string) {
   return amount;
 }
 
+function yearlyEquivalent(monthlyCost: number, annualCost: number) {
+  return monthlyCost * 12 + annualCost;
+}
+
+function isYearlyCycle(cycle: string) {
+  const normalized = cycle.toLowerCase();
+  return normalized.includes("annual") || normalized.includes("year");
+}
+
 export default function DashboardPage() {
   const { data } = useStackMapData();
   const { storageMeta, backupMeta } = useStackMapStorageMeta();
   const activeSubscriptions = data.subscriptions.filter((item) =>
     ["active", "trial"].includes(item.status),
   );
-  const subscriptionMonthly = activeSubscriptions.reduce(
-    (sum, item) => sum + monthlyEquivalent(item.amount, item.billingCycle),
-    0,
+  const paidTools = data.tools.filter(
+    (tool) => tool.status === "active" && (tool.paidStatus === "paid" || tool.paidStatus === "credits"),
   );
-  const toolMonthly = data.tools.reduce(
+  const paidToolIds = new Set(paidTools.map((tool) => tool.id));
+  const subscriptionOnlyMonthly = activeSubscriptions
+    .filter((subscription) => !paidToolIds.has(subscription.toolId))
+    .reduce((sum, item) => sum + monthlyEquivalent(item.amount, item.billingCycle), 0);
+  const toolMonthly = paidTools.reduce(
     (sum, tool) => sum + tool.monthlyCost + tool.annualCost / 12,
     0,
   );
+  const toolAnnual = paidTools.reduce(
+    (sum, tool) => sum + yearlyEquivalent(tool.monthlyCost, tool.annualCost),
+    0,
+  );
+  const monthlyEstimate = toolMonthly + subscriptionOnlyMonthly;
+  const annualEstimate = toolAnnual + subscriptionOnlyMonthly * 12;
   const unknownPaidTools = data.tools.filter((tool) => tool.paidStatus === "unknown");
+  const monthlyRecurringTools = paidTools
+    .filter((tool) => tool.monthlyCost > 0 && !tool.renewalDate)
+    .sort((first, second) => second.monthlyCost - first.monthlyCost)
+    .slice(0, 6);
   const upcomingRenewals = [
-    ...data.subscriptions
-      .filter((item) => item.nextRenewalDate)
-      .map((item) => ({
-        id: item.id,
-        name: item.vendorName,
-        date: item.nextRenewalDate,
-        detail: `${formatCurrency(item.amount, item.currency)} / ${item.billingCycle}`,
-      })),
     ...data.tools
-      .filter((item) => item.renewalDate)
+      .filter((item) => item.renewalDate && isYearlyCycle(item.billingCycle))
       .map((item) => ({
-        id: item.id,
+        id: `tool-${item.id}`,
         name: item.name,
         date: item.renewalDate,
-        detail: `${item.paidStatus} / ${item.billingCycle}`,
+        detail: `${formatCurrency(item.annualCost || item.monthlyCost)} / ${item.billingCycle || item.paidStatus}`,
+        href: `/tools/${item.id}`,
+      })),
+    ...data.subscriptions
+      .filter((item) => {
+        if (!item.nextRenewalDate || !isYearlyCycle(item.billingCycle)) return false;
+        const linkedTool = data.tools.find((tool) => tool.id === item.toolId);
+        return !linkedTool?.renewalDate;
+      })
+      .map((item) => ({
+        id: `subscription-${item.id}`,
+        name: data.tools.find((tool) => tool.id === item.toolId)?.name ?? item.vendorName,
+        date: item.nextRenewalDate,
+        detail: `${formatCurrency(item.amount, item.currency)} / ${item.billingCycle}`,
+        href: `/subscriptions`,
       })),
   ]
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -64,7 +92,7 @@ export default function DashboardPage() {
       <header>
         <h1 className="text-2xl font-semibold text-slate-950">Dashboard</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Manual reference view of projects, tools, subscriptions, and relationships.
+          Your local overview of projects, tools, costs, renewals, and relationships.
         </p>
       </header>
 
@@ -73,21 +101,21 @@ export default function DashboardPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p>
               {backupMeta
-                ? "Your StackMap data has changed since the last full backup."
+                ? "Your StackMap has changes that are not in your latest backup."
                 : "Your StackMap data is stored locally in this browser profile. Export a full backup before relying on it long term."}
             </p>
             <Link
               href="/settings"
               className="rounded-md bg-amber-900 px-3 py-2 text-sm font-medium text-white hover:bg-amber-800"
             >
-              Backup settings
+              Backup now
             </Link>
           </div>
         </section>
       ) : null}
 
       {isEmptyWorkspace ? (
-        <section className="rounded-lg border border-cyan-200 bg-cyan-50 p-5">
+        <section className="rounded-lg border border-indigo-200 bg-indigo-50 p-5">
           <h2 className="text-lg font-semibold text-slate-950">Start a private StackMap</h2>
           <p className="mt-2 max-w-3xl text-sm text-slate-700">
             This workspace is empty. Add your own projects and tools, import a backup, or load
@@ -96,7 +124,7 @@ export default function DashboardPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               href="/projects"
-              className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
             >
               Add projects
             </Link>
@@ -116,27 +144,55 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <StatCard label="Projects" value={data.projects.length} detail="Manual records" icon={FolderKanban} href="/projects" />
         <StatCard label="Tools" value={data.tools.length} detail="Tracked services" icon={Wrench} href="/tools" />
-        <StatCard label="Active Subs" value={activeSubscriptions.length} detail="Active or trial" icon={CreditCard} href="/subscriptions" />
-        <StatCard label="Monthly Cost" value={formatCurrency(subscriptionMonthly + toolMonthly)} detail="Estimated" icon={CalendarClock} href="/subscriptions" />
-        <StatCard label="Unknown Paid" value={unknownPaidTools.length} detail="Needs review" icon={AlertCircle} href="/tools" />
+        <StatCard label="Paid Tools" value={paidTools.length} detail="Active paid tools" icon={CreditCard} href="/tools?status=active&paid=paid" />
+        <StatCard
+          label="Monthly Est."
+          value={formatCurrency(monthlyEstimate)}
+          detail={`Annual est. ${formatCurrency(annualEstimate)}`}
+          note="Annual costs / 12 + monthly costs."
+          icon={CalendarClock}
+          href="/tools?status=active&paid=paid&cost=tracked"
+        />
+        <StatCard label="Unknown Paid" value={unknownPaidTools.length} detail="Needs review" icon={AlertCircle} href="/tools?paid=unknown" />
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-sm font-medium text-slate-500">Unknown Paid Tools</h2>
+            {unknownPaidTools.length ? (
+              <Link href="/tools?paid=unknown" className="text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                Open
+              </Link>
+            ) : null}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {unknownPaidTools.length ? (
+              unknownPaidTools.slice(0, 6).map((tool) => (
+                <span key={tool.id} className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
+                  {tool.name}
+                </span>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500">All clear</p>
+            )}
+          </div>
+        </section>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-950">Upcoming Renewals</h2>
+          <h2 className="text-base font-semibold text-slate-950">Yearly Renewals</h2>
           <div className="mt-4 space-y-3">
             {upcomingRenewals.length ? (
               upcomingRenewals.map((renewal) => (
-                <div key={renewal.id} className="flex items-start justify-between gap-4 rounded-md bg-slate-50 px-3 py-2">
+                <Link key={renewal.id} href={renewal.href} className="flex items-start justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 hover:bg-indigo-50">
                   <div>
                     <p className="font-medium text-slate-900">{renewal.name}</p>
                     <p className="text-sm text-slate-500">{renewal.detail}</p>
                   </div>
                   <p className="text-sm font-medium text-slate-700">{formatDate(renewal.date)}</p>
-                </div>
+                </Link>
               ))
             ) : (
               <p className="text-sm text-slate-500">No renewal dates have been entered yet.</p>
@@ -145,20 +201,32 @@ export default function DashboardPage() {
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-950">Tools With Unknown Paid Status</h2>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {unknownPaidTools.length ? (
-              unknownPaidTools.map((tool) => (
-                <span key={tool.id} className="rounded-md bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
-                  {tool.name}
-                </span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-950">Monthly Recurring</h2>
+            {monthlyRecurringTools.length ? (
+              <Link href="/tools?status=active&paid=paid&cost=tracked" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                Open filtered list
+              </Link>
+            ) : null}
+          </div>
+          <div className="mt-4 space-y-3">
+            {monthlyRecurringTools.length ? (
+              monthlyRecurringTools.map((tool) => (
+                <Link key={tool.id} href={`/tools/${tool.id}`} className="flex items-start justify-between gap-4 rounded-md bg-slate-50 px-3 py-2 hover:bg-indigo-50">
+                  <div>
+                    <p className="font-medium text-slate-900">{tool.name}</p>
+                    <p className="text-sm text-slate-500">{tool.billingCycle || "monthly"}</p>
+                  </div>
+                  <p className="text-sm font-medium text-slate-700">{formatCurrency(tool.monthlyCost)}/mo</p>
+                </Link>
               ))
             ) : (
-              <p className="text-sm text-slate-500">All tools have a paid status.</p>
+              <p className="text-sm text-slate-500">No monthly recurring paid tools without renewal dates.</p>
             )}
           </div>
         </div>
       </section>
+
     </div>
   );
 }

@@ -22,8 +22,12 @@ export function ProjectForm({
   onSave: (value: ProjectFormValue) => void;
   onCancel: () => void;
 }) {
-  const value = initialValue ?? defaultValue;
+  const [value, setValue] = useState<ProjectFormValue>(initialValue ?? defaultValue);
   const [error, setError] = useState("");
+
+  function updateValue<K extends keyof ProjectFormValue>(key: K, nextValue: ProjectFormValue[K]) {
+    setValue((current) => ({ ...current, [key]: nextValue }));
+  }
 
   return (
     <form
@@ -56,7 +60,8 @@ export function ProjectForm({
           <input
             name="name"
             required
-            defaultValue={value.name}
+            value={value.name}
+            onChange={(event) => updateValue("name", event.target.value)}
             className="rounded-md border border-slate-300 px-3 py-2 font-normal"
           />
         </label>
@@ -64,7 +69,8 @@ export function ProjectForm({
           Type
           <select
             name="type"
-            defaultValue={value.type}
+            value={value.type}
+            onChange={(event) => updateValue("type", event.target.value as ProjectFormValue["type"])}
             className="rounded-md border border-slate-300 px-3 py-2 font-normal"
           >
             {PROJECT_TYPES.map((type) => (
@@ -76,7 +82,10 @@ export function ProjectForm({
           Status
           <select
             name="status"
-            defaultValue={value.status}
+            value={value.status}
+            onChange={(event) =>
+              updateValue("status", event.target.value as ProjectFormValue["status"])
+            }
             className="rounded-md border border-slate-300 px-3 py-2 font-normal"
           >
             {PROJECT_STATUSES.map((status) => (
@@ -90,7 +99,8 @@ export function ProjectForm({
         <textarea
           name="notes"
           rows={3}
-          defaultValue={value.notes}
+          value={value.notes}
+          onChange={(event) => updateValue("notes", event.target.value)}
           className="rounded-md border border-slate-300 px-3 py-2 font-normal"
         />
       </label>
@@ -104,7 +114,7 @@ export function ProjectForm({
         </button>
         <button
           type="submit"
-          className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
           Save Project
         </button>

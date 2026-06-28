@@ -15,6 +15,7 @@ export const STORAGE_BACKUP_META_KEY = "stackmap.mvp.data.v1.backupMeta";
 export const BACKUP_VERSION = 1;
 
 export const PROJECT_TYPES: ProjectType[] = [
+  "mobile app",
   "iOS app",
   "Android app",
   "website",
@@ -43,7 +44,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
   "other",
 ];
 
-export const PAID_STATUSES: PaidStatus[] = ["paid", "free", "trial", "unknown"];
+export const PAID_STATUSES: PaidStatus[] = ["paid", "free", "trial", "credits", "unknown"];
 
 export const TOOL_STATUSES: ToolStatus[] = [
   "active",

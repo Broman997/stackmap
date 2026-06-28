@@ -17,8 +17,8 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
-  { href: "/search", label: "Search", icon: Search },
-  { href: "/review", label: "Review", icon: ClipboardCheck },
+  { href: "/search", label: "Find", icon: Search },
+  { href: "/review", label: "Checklist", icon: ClipboardCheck },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/tools", label: "Tools", icon: Wrench },
   { href: "/subscriptions", label: "Subscriptions", icon: CreditCard },
@@ -31,14 +31,14 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="border-slate-200 bg-white lg:min-h-screen lg:w-64 lg:border-r">
-      <div className="border-b border-slate-200 px-4 py-4 lg:px-6">
+    <aside className="bg-slate-900 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:self-start lg:overflow-y-auto">
+      <div className="border-b border-slate-800 px-4 py-5 lg:px-6">
         <Link href="/" className="block">
-          <div className="text-lg font-semibold text-slate-950">StackMap</div>
-          <div className="text-xs text-slate-500">Local reference dashboard</div>
+          <div className="text-lg font-semibold tracking-tight text-white">StackMap</div>
+          <div className="mt-0.5 text-xs text-slate-400">Local reference dashboard</div>
         </Link>
       </div>
-      <nav className="flex gap-2 overflow-x-auto px-3 py-3 lg:block lg:space-y-1 lg:overflow-visible">
+      <nav className="flex gap-1 overflow-x-auto px-3 py-3 lg:block lg:space-y-0.5 lg:overflow-visible">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -49,13 +49,13 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex min-w-fit items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition",
+                "flex min-w-fit items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white",
               )}
             >
-              <Icon className="h-4 w-4" aria-hidden="true" />
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{item.label}</span>
             </Link>
           );

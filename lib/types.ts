@@ -1,4 +1,5 @@
 export type ProjectType =
+  | "mobile app"
   | "iOS app"
   | "Android app"
   | "website"
@@ -21,7 +22,7 @@ export type ToolCategory =
   | "payment"
   | "other";
 
-export type PaidStatus = "paid" | "free" | "trial" | "unknown";
+export type PaidStatus = "paid" | "free" | "trial" | "credits" | "unknown";
 export type ToolStatus = "active" | "unused" | "cancelled" | "unknown";
 export type EntityType = "project" | "tool";
 

@@ -20,6 +20,7 @@ type EntityTableProps<T extends { id: string }> = {
   getViewHref?: (item: T) => string;
   onEdit: (item: T) => void;
   onDelete: (id: string) => void;
+  getCanDelete?: (item: T) => boolean;
 };
 
 export function EntityTable<T extends { id: string }>({
@@ -30,6 +31,7 @@ export function EntityTable<T extends { id: string }>({
   getViewHref,
   onEdit,
   onDelete,
+  getCanDelete,
 }: EntityTableProps<T>) {
   const sortableColumns = columns.filter((column) => column.sortValue);
   const [sort, setSort] = useState<{ header: string; direction: "asc" | "desc" } | null>(
@@ -117,47 +119,52 @@ export function EntityTable<T extends { id: string }>({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {sortedItems.map((item) => (
-              <tr key={item.id} className="align-top">
-                {columns.map((column) => (
-                  <td key={column.header} className="px-4 py-3 text-slate-700">
-                    {column.cell(item)}
-                  </td>
-                ))}
-                <td className="px-4 py-3">
-                  <div className="flex justify-end gap-2">
-                    {getViewHref ? (
-                      <Link
-                        href={getViewHref(item)}
+            {sortedItems.map((item) => {
+              const canDelete = getCanDelete ? getCanDelete(item) : true;
+              return (
+                <tr key={item.id} className="align-top">
+                  {columns.map((column) => (
+                    <td key={column.header} className="px-4 py-3 text-slate-700">
+                      {column.cell(item)}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      {getViewHref ? (
+                        <Link
+                          href={getViewHref(item)}
+                          className="rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-slate-100"
+                          aria-label="View details"
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => onEdit(item)}
                         className="rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-slate-100"
-                        aria-label="View details"
-                        title="View details"
+                        aria-label="Edit"
+                        title="Edit"
                       >
-                        <Eye className="h-4 w-4" aria-hidden="true" />
-                      </Link>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => onEdit(item)}
-                      className="rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-slate-100"
-                      aria-label="Edit"
-                      title="Edit"
-                    >
-                      <Pencil className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(item.id)}
-                      className="rounded-md border border-rose-200 p-2 text-rose-700 hover:bg-rose-50"
-                      aria-label="Delete"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => onDelete(item.id)}
+                          className="rounded-md border border-rose-200 p-2 text-rose-700 hover:bg-rose-50"
+                          aria-label="Delete"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

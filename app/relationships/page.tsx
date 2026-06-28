@@ -318,7 +318,7 @@ export default function RelationshipsPage() {
           <h1 className="text-2xl font-semibold text-slate-950">Relationships</h1>
           <p className="mt-1 text-sm text-slate-600">Connect projects and tools with manual relationship records.</p>
         </div>
-        <button onClick={() => setIsAdding(true)} className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+        <button onClick={() => setIsAdding(true)} className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
           <Plus className="h-4 w-4" aria-hidden="true" />
           Add Relationship
         </button>
@@ -381,7 +381,7 @@ export default function RelationshipsPage() {
             type="button"
             onClick={addSelectedRelationships}
             disabled={!data.projects.length || !selectedTemplateKeys.length}
-            className="inline-flex items-center justify-center gap-2 self-end rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="inline-flex items-center justify-center gap-2 self-end rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             <Wand2 className="h-4 w-4" aria-hidden="true" />
             Add Selected
@@ -418,7 +418,7 @@ export default function RelationshipsPage() {
                         "flex items-start gap-3 rounded-md border px-3 py-2 text-sm",
                         disabled
                           ? "border-slate-200 bg-slate-50 text-slate-500"
-                          : "border-slate-200 bg-white text-slate-800 hover:border-cyan-300 hover:bg-cyan-50",
+                          : "border-slate-200 bg-white text-slate-800 hover:border-indigo-300 hover:bg-indigo-50",
                       ].join(" ")}
                     >
                       <input
@@ -445,7 +445,7 @@ export default function RelationshipsPage() {
         </div>
 
         {templateMessage ? (
-          <p className="mt-3 rounded-md bg-cyan-50 px-3 py-2 text-sm text-cyan-800">
+          <p className="mt-3 rounded-md bg-indigo-50 px-3 py-2 text-sm text-indigo-700">
             {templateMessage}
           </p>
         ) : null}
