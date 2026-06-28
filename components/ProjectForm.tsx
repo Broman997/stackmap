@@ -11,6 +11,8 @@ const defaultValue: ProjectFormValue = {
   type: "other",
   status: "active",
   notes: "",
+  appStoreUrl: "",
+  googlePlayUrl: "",
 };
 
 export function ProjectForm({
@@ -48,6 +50,8 @@ export function ProjectForm({
           type: String(formData.get("type") ?? "other") as ProjectFormValue["type"],
           status: String(formData.get("status") ?? "active") as ProjectFormValue["status"],
           notes: String(formData.get("notes") ?? "").trim(),
+          appStoreUrl: String(formData.get("appStoreUrl") ?? "").trim() || undefined,
+          googlePlayUrl: String(formData.get("googlePlayUrl") ?? "").trim() || undefined,
         });
       }}
     >
@@ -106,6 +110,30 @@ export function ProjectForm({
               <option key={status}>{status}</option>
             ))}
           </select>
+        </label>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="grid gap-1 text-sm font-medium text-slate-700">
+          App Store URL
+          <input
+            name="appStoreUrl"
+            type="url"
+            value={value.appStoreUrl ?? ""}
+            onChange={(event) => updateValue("appStoreUrl", event.target.value)}
+            placeholder="https://apps.apple.com/..."
+            className="rounded-md border border-slate-300 px-3 py-2 font-normal"
+          />
+        </label>
+        <label className="grid gap-1 text-sm font-medium text-slate-700">
+          Google Play URL
+          <input
+            name="googlePlayUrl"
+            type="url"
+            value={value.googlePlayUrl ?? ""}
+            onChange={(event) => updateValue("googlePlayUrl", event.target.value)}
+            placeholder="https://play.google.com/store/apps/..."
+            className="rounded-md border border-slate-300 px-3 py-2 font-normal"
+          />
         </label>
       </div>
       <label className="grid gap-1 text-sm font-medium text-slate-700">

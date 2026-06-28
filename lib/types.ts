@@ -65,6 +65,8 @@ export type Project = SourceMetadata & {
   type: ProjectType;
   status: ProjectStatus;
   notes: string;
+  appStoreUrl?: string;
+  googlePlayUrl?: string;
   lastReviewedAt?: string;
   createdAt: string;
   updatedAt: string;
