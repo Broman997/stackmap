@@ -720,6 +720,15 @@ export function useStackMapData() {
       clearAllData() {
         setData(emptyData());
       },
+      clearProjectsAndRelationships() {
+        setData((current) => ({
+          ...current,
+          projects: [],
+          relationships: [],
+          subscriptions: [],
+          suggestions: [],
+        }));
+      },
       importData(nextData: StackMapData) {
         if (!isStackMapData(nextData)) {
           throw new Error("Invalid StackMap data");

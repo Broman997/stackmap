@@ -122,6 +122,7 @@ export default function SettingsPage() {
     data,
     resetSampleData,
     clearAllData,
+    clearProjectsAndRelationships,
     importData,
     clearSuggestions,
   } = useStackMapData();
@@ -470,6 +471,19 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => {
+                if (confirmRiskyLocalChange("Clear projects, relationships, and subscriptions — but keep your tool library?")) {
+                  clearProjectsAndRelationships();
+                  refreshStorageMeta();
+                  setMessage("Cleared projects and relationships. Tool library kept.");
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-md border border-amber-300 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              Clear Projects Only
+            </button>
+            <button
+              onClick={() => {
                 if (
                   confirmRiskyLocalChange(
                     "Clear all local StackMap data in this browser profile?",
@@ -483,7 +497,7 @@ export default function SettingsPage() {
               className="inline-flex items-center gap-2 rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
             >
               <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              Clear Local Data
+              Clear All Data
             </button>
             <button
               onClick={() => {
