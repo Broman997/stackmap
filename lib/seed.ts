@@ -11,8 +11,8 @@ export const seedData: StackMapData = {
       status: "active",
       notes:
         "Demo mobile app record. This sample shows why a private dependency map is useful for tracking stores, databases, AI tools, ads, subscriptions, and deployments.",
-      appStoreUrl: "",
-      googlePlayUrl: "",
+      appStoreUrl: "https://apps.apple.com/us/app/logit-tv-movie-tracker/id6760734928",
+      googlePlayUrl: "https://play.google.com/store/apps/details?id=ca.logit.app",
       createdAt,
       updatedAt: createdAt,
     },
@@ -23,8 +23,8 @@ export const seedData: StackMapData = {
       status: "active",
       notes:
         "Demo app record based on a realistic indie-builder workflow. Public sample data only; no private account details are included.",
-      appStoreUrl: "",
-      googlePlayUrl: "",
+      appStoreUrl: "https://apps.apple.com/us/app/keymatch-pro/id6757365149",
+      googlePlayUrl: "https://play.google.com/store/apps/details?id=ca.keymatchpro.app",
       createdAt,
       updatedAt: createdAt,
     },
@@ -35,8 +35,8 @@ export const seedData: StackMapData = {
       status: "active",
       notes:
         "Home inventory app for tracking and organizing household items. Published on iOS and Android.",
-      appStoreUrl: "",
-      googlePlayUrl: "",
+      appStoreUrl: "https://apps.apple.com/us/app/home-inventory-vault/id6760505678",
+      googlePlayUrl: "https://play.google.com/store/apps/details?id=ca.homeinventoryvault.app",
       createdAt,
       updatedAt: createdAt,
     },
