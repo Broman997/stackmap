@@ -1,13 +1,18 @@
+param(
+  [switch]$Rebuild
+)
+
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
 $url = "http://localhost:3000"
 $port = 3000
 $logDir = Join-Path $root ".launcher"
-$stdoutLog = Join-Path $logDir "stackmap-dev.log"
-$stderrLog = Join-Path $logDir "stackmap-dev.err.log"
-$pidFile = Join-Path $logDir "stackmap-dev.pid"
+$stdoutLog = Join-Path $logDir "stackmap.log"
+$stderrLog = Join-Path $logDir "stackmap.err.log"
+$pidFile = Join-Path $logDir "stackmap.pid"
 $nextBin = Join-Path $root "node_modules\next\dist\bin\next"
+$buildId = Join-Path $root ".next\BUILD_ID"
 
 function Test-StackMapReady {
   try {
@@ -39,12 +44,32 @@ if (Test-StackMapReady) {
   exit 0
 }
 
+if ($Rebuild -or !(Test-Path $buildId)) {
+  Write-Host "Building StackMap (this takes about 30-60 seconds)..." -ForegroundColor Yellow
+  Write-Host ""
+  Push-Location $root
+  try {
+    node $nextBin build
+  } finally {
+    Pop-Location
+  }
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "Build failed. See output above for details." -ForegroundColor Red
+    Read-Host "Press Enter to close"
+    exit 1
+  }
+  Write-Host ""
+  Write-Host "Build complete." -ForegroundColor Green
+  Write-Host ""
+}
+
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 Remove-Item -LiteralPath $stdoutLog, $stderrLog, $pidFile -Force -ErrorAction SilentlyContinue
 
 $arguments = @(
   $nextBin,
-  "dev",
+  "start",
   "--hostname",
   "localhost",
   "--port",

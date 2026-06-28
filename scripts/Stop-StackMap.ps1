@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $url = "http://localhost:3000"
 $logDir = Join-Path $root ".launcher"
-$pidFile = Join-Path $logDir "stackmap-dev.pid"
+$pidFile = Join-Path $logDir "stackmap.pid"
 
 Write-Host ""
 Write-Host "Stopping StackMap..." -ForegroundColor Cyan
