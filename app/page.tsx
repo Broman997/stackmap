@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertCircle, CalendarClock, CreditCard, FolderKanban, Wrench } from "lucide-react";
+import { AlertCircle, CalendarClock, CreditCard, Download, FolderKanban, Wrench } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useStackMapData, useStackMapStorageMeta } from "@/lib/storage";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -227,6 +227,23 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-slate-950">Want to use StackMap on your desktop?</p>
+            <p className="mt-1 text-sm text-slate-500">Free Windows app — your data stays local, no account needed.</p>
+          </div>
+          <a
+            href="https://github.com/Broman997/stackmap/releases/latest"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Download for Windows
+          </a>
+        </div>
+      </section>
     </div>
   );
 }
