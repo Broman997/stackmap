@@ -8,6 +8,7 @@ import { ToolForm } from "@/components/ToolForm";
 import { PAID_STATUSES, TOOL_CATEGORIES, TOOL_STATUSES } from "@/lib/constants";
 import { useStackMapData } from "@/lib/storage";
 import type { Tool } from "@/lib/types";
+import { StatusBadge } from "@/components/StatusBadge";
 import { formatCurrency, formatDate, getToolReviewItems } from "@/lib/utils";
 
 export default function ToolsPage() {
@@ -38,6 +39,11 @@ function ToolsPageState({ searchParams }: { searchParams: URLSearchParams }) {
   const { data, addTool, updateTool, deleteTool } = useStackMapData();
   const [isAdding, setIsAdding] = useState(false);
   const [editing, setEditing] = useState<Tool | null>(null);
+
+  function startEditing(tool: Tool) {
+    setEditing(tool);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   const [categoryFilter, setCategoryFilter] = useState(() =>
     getQueryFilter(searchParams, "category", TOOL_CATEGORIES),
   );
@@ -88,7 +94,7 @@ function ToolsPageState({ searchParams }: { searchParams: URLSearchParams }) {
       sortValue: (item) => item.name,
     },
     { header: "Category", cell: (item) => item.category, sortValue: (item) => item.category },
-    { header: "Paid", cell: (item) => item.paidStatus, sortValue: (item) => item.paidStatus },
+    { header: "Paid", cell: (item) => <StatusBadge value={item.paidStatus} />, sortValue: (item) => item.paidStatus },
     {
       header: "Cost",
       cell: (item) => `${formatCurrency(item.monthlyCost)}/mo, ${formatCurrency(item.annualCost)}/yr`,
@@ -107,7 +113,7 @@ function ToolsPageState({ searchParams }: { searchParams: URLSearchParams }) {
       },
       sortValue: (item) => getToolReviewItems(item, data).length,
     },
-    { header: "Status", cell: (item) => item.status, sortValue: (item) => item.status },
+    { header: "Status", cell: (item) => <StatusBadge value={item.status} />, sortValue: (item) => item.status },
   ];
 
   return (
@@ -130,7 +136,7 @@ function ToolsPageState({ searchParams }: { searchParams: URLSearchParams }) {
           initialValue={editing ?? undefined}
           reviewItems={editing ? getToolReviewItems(editing, data) : []}
           onSelectExistingTool={(tool) => {
-            setEditing(tool);
+            startEditing(tool);
             setIsAdding(false);
           }}
           onCancel={() => {
@@ -194,7 +200,7 @@ function ToolsPageState({ searchParams }: { searchParams: URLSearchParams }) {
         emptyMessage="No tools match the current filters."
         emptyDetail="Clear the filters or add a new tool record."
         getViewHref={(item) => `/tools/${item.id}`}
-        onEdit={setEditing}
+        onEdit={startEditing}
         onDelete={(id) => {
           if (window.confirm("Delete this tool, its subscriptions, and its relationships?")) {
             deleteTool(id);

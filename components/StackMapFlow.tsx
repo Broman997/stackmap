@@ -140,10 +140,13 @@ function applyFocusedGroupLayout(
   const relatedYStep = 106;
   const groupGap = 54;
   const isSingle = focusedIds.length === 1;
+  const focusedAreTool = focusedIds.every((id) => id.startsWith("tool:"));
+
+  // When a tool is focused, flip the layout so projects always appear on the left.
   const startX = isSingle ? 0 : -330;
-  const focusedX = isSingle ? 300 : 0;
-  const groupX = isSingle ? 630 : 330;
-  const relatedX = isSingle ? 960 : 660;
+  const focusedX = focusedAreTool ? (isSingle ? 660 : 330) : (isSingle ? 300 : 0);
+  const groupX = focusedAreTool ? (isSingle ? 330 : 0) : (isSingle ? 630 : 330);
+  const relatedX = focusedAreTool ? (isSingle ? 0 : -330) : (isSingle ? 960 : 660);
 
   const groupNodes: Node<MapNodeData>[] = [];
   const positionedRelatedNodes: Node<MapNodeData>[] = [];
@@ -374,6 +377,8 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
       const visibleNodeById = new Map(nodes.map((n) => [n.id, n]));
       const focusedSet = new Set(focusedProjectIds);
 
+      const focusedAreTool = focusedProjectIds.every((id) => id.startsWith("tool:"));
+
       data.relationships.forEach((r) => {
         const source = `${r.fromType}:${r.fromId}`;
         const target = `${r.toType}:${r.toId}`;
@@ -399,16 +404,22 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
 
         if (!visibleNodeIds.has(groupId)) return;
 
-        const pgId = `${focusedNodeId}->${groupId}`;
+        // When a tool is focused, projects are on the left — edges flow left to right:
+        // project → group → tool. When a project is focused, it's the reverse side
+        // that fans out, so: project → group → related tool (same visual direction).
+        const leftNodeId = focusedAreTool ? otherNodeId : focusedNodeId;
+        const rightNodeId = focusedAreTool ? focusedNodeId : otherNodeId;
+
+        const pgId = `${leftNodeId}->${groupId}`;
         if (!drawnEdgeIds.has(pgId)) {
           drawnEdgeIds.add(pgId);
-          focusedEdges.push({ id: pgId, source: focusedNodeId, target: groupId, type: "smoothstep", animated: false, style: { stroke: "#334155", strokeWidth: 2.4 } });
+          focusedEdges.push({ id: pgId, source: leftNodeId, target: groupId, type: "smoothstep", animated: false, style: { stroke: "#334155", strokeWidth: 2.4 } });
         }
 
-        const gtId = `${groupId}->${otherNodeId}`;
+        const gtId = `${groupId}->${rightNodeId}`;
         if (!drawnEdgeIds.has(gtId)) {
           drawnEdgeIds.add(gtId);
-          focusedEdges.push({ id: gtId, source: groupId, target: otherNodeId, type: "smoothstep", animated: false, style: { stroke: "#64748b", strokeWidth: 1.8 } });
+          focusedEdges.push({ id: gtId, source: groupId, target: rightNodeId, type: "smoothstep", animated: false, style: { stroke: "#64748b", strokeWidth: 1.8 } });
         }
       });
 

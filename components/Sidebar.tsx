@@ -16,6 +16,7 @@ import {
   Wrench,
 } from "lucide-react";
 import {
+  DEFAULT_NAV_ITEMS,
   NAV_ORDER_EVENT,
   getOrderedNavItems,
   readNavOrder,
@@ -41,11 +42,15 @@ const navIcons: Record<NavItemId, typeof Home> = {
 export function Sidebar() {
   const pathname = usePathname();
   const { data } = useStackMapData();
-  const [navOrder, setNavOrder] = useState<NavItemId[]>(() => readNavOrder());
+  const [navOrder, setNavOrder] = useState<NavItemId[]>(
+    DEFAULT_NAV_ITEMS.map((item) => item.id),
+  );
   const [draggedNavId, setDraggedNavId] = useState<NavItemId | null>(null);
   const [dragOverNavId, setDragOverNavId] = useState<NavItemId | null>(null);
 
   useEffect(() => {
+    setNavOrder(readNavOrder());
+
     function refreshNavOrder() {
       setNavOrder(readNavOrder());
     }

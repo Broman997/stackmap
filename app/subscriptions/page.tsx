@@ -7,6 +7,7 @@ import { EntityTable, type TableColumn } from "@/components/EntityTable";
 import { SubscriptionForm } from "@/components/SubscriptionForm";
 import { useStackMapData } from "@/lib/storage";
 import type { Subscription } from "@/lib/types";
+import { StatusBadge } from "@/components/StatusBadge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 type BillingRow = {
@@ -120,7 +121,7 @@ export default function SubscriptionsPage() {
     },
     {
       header: "Status",
-      cell: (item) => item.status,
+      cell: (item) => <StatusBadge value={item.status} />,
       sortValue: (item) => item.status,
     },
   ];

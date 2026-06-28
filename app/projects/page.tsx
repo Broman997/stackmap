@@ -7,6 +7,7 @@ import { ProjectForm } from "@/components/ProjectForm";
 import { PROJECT_STATUSES, PROJECT_TYPES } from "@/lib/constants";
 import { useStackMapData } from "@/lib/storage";
 import type { Project } from "@/lib/types";
+import { StatusBadge } from "@/components/StatusBadge";
 import { getProjectReviewItems } from "@/lib/utils";
 
 export default function ProjectsPage() {
@@ -53,7 +54,7 @@ export default function ProjectsPage() {
       sortValue: (item) => item.name,
     },
     { header: "Type", cell: (item) => item.type, sortValue: (item) => item.type },
-    { header: "Status", cell: (item) => item.status, sortValue: (item) => item.status },
+    { header: "Status", cell: (item) => <StatusBadge value={item.status} />, sortValue: (item) => item.status },
     {
       header: "Attention",
       cell: (item) => {

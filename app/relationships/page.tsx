@@ -199,6 +199,11 @@ export default function RelationshipsPage() {
   const { data, addRelationship, updateRelationship, deleteRelationship } = useStackMapData();
   const [isAdding, setIsAdding] = useState(false);
   const [editing, setEditing] = useState<Relationship | null>(null);
+
+  function startEditing(relationship: Relationship) {
+    setEditing(relationship);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   const [defaultFrom, setDefaultFrom] = useState<{ type: EntityType; id: string } | undefined>();
   const [templateProjectId, setTemplateProjectId] = useState("");
   const [selectedTemplateKeys, setSelectedTemplateKeys] = useState<string[]>([]);
@@ -456,7 +461,7 @@ export default function RelationshipsPage() {
         columns={columns}
         emptyMessage="No relationships yet."
         emptyDetail="Add a relationship to connect a project to a tool or another tool."
-        onEdit={setEditing}
+        onEdit={startEditing}
         onDelete={(id) => {
           if (window.confirm("Delete this relationship?")) {
             deleteRelationship(id);
