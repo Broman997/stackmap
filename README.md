@@ -45,6 +45,20 @@ The app should not store raw API keys, access tokens, refresh tokens, or secrets
 
 ## Running Locally
 
+On Windows, use the launcher:
+
+```powershell
+.\Start-StackMap.cmd
+```
+
+This starts StackMap, opens `http://localhost:3000`, and closes the launcher window automatically. StackMap keeps running in the background.
+
+To stop the launcher-started server:
+
+```powershell
+.\Stop-StackMap.cmd
+```
+
 Install dependencies:
 
 ```powershell
