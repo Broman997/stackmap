@@ -58,8 +58,8 @@ export default function ProjectDetailPage() {
               </a>
             ) : null}
             {project.googlePlayUrl ? (
-              <a href={project.googlePlayUrl} target="_blank" rel="noreferrer" className="inline-flex items-center">
-                <img src="/badges/google-play.png" alt="Get it on Google Play" className="h-10" />
+              <a href={project.googlePlayUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center overflow-hidden">
+                <img src="/badges/google-play.png" alt="Get it on Google Play" className="-my-[8px] h-14" />
               </a>
             ) : null}
             <Link

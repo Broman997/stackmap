@@ -658,8 +658,8 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
           </a>
         ) : null}
         {selected.googlePlayUrl ? (
-          <a href={selected.googlePlayUrl} target="_blank" rel="noreferrer" className="inline-flex items-center">
-            <img src="/badges/google-play.png" alt="Get it on Google Play" className="h-10" />
+          <a href={selected.googlePlayUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center overflow-hidden">
+            <img src="/badges/google-play.png" alt="Get it on Google Play" className="-my-[8px] h-14" />
           </a>
         ) : null}
         {selected.href ? (
