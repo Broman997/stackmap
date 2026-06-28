@@ -1,0 +1,26 @@
+StackMap — Quick Command Reference
+===================================
+
+BROWSER APP (localhost:3000)
+-----------------------------
+Start-StackMap.cmd      Start the dev server (open browser to http://localhost:3000)
+Stop-StackMap.cmd       Stop the dev server
+Rebuild-StackMap.cmd    Stop + clear build cache + restart (use after code changes)
+
+DESKTOP APP (Electron)
+-----------------------
+Build-Electron.cmd      Build a new installer → dist\StackMap Setup x.x.x.exe
+                        Run that .exe to update the desktop app.
+
+TYPICAL WORKFLOW AFTER MAKING CHANGES
+--------------------------------------
+1. Run Rebuild-StackMap.cmd        (updates the browser app)
+2. Check changes at localhost:3000
+3. Run Build-Electron.cmd          (builds new desktop installer)
+4. Run the new .exe from dist\     (installs/updates the desktop app)
+
+NOTES
+------
+- Browser (localhost:3000) and the desktop app have SEPARATE data (localStorage).
+- Use the desktop app as your primary — export/import to move data between them.
+- The dist\ folder is git-ignored; the installer stays local only.

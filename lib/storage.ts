@@ -212,7 +212,8 @@ function loadData(): StackMapData {
   const recovery = window.localStorage.getItem(STORAGE_RECOVERY_KEY);
 
   if (!stored && !recovery) {
-    const initialData = emptyData();
+    const initialData =
+      process.env.NEXT_PUBLIC_DEMO_MODE === "true" ? cloneSeed() : emptyData();
     saveData(initialData);
     return initialData;
   }

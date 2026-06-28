@@ -171,13 +171,13 @@ function getRelationshipBuilderGroups(data: StackMapData): RelationshipTemplateG
   return [...groups.entries()].map(([name, items]) => ({ name, items }));
 }
 
-function relationshipExists(
+function findExistingRelationship(
   data: StackMapData,
   projectId: string,
   toolId: string,
   relationshipType: RelationshipType,
 ) {
-  return data.relationships.some(
+  return data.relationships.find(
     (relationship) =>
       relationship.fromType === "project" &&
       relationship.fromId === projectId &&
@@ -185,6 +185,15 @@ function relationshipExists(
       relationship.toId === toolId &&
       relationship.relationshipType === relationshipType,
   );
+}
+
+function relationshipExists(
+  data: StackMapData,
+  projectId: string,
+  toolId: string,
+  relationshipType: RelationshipType,
+) {
+  return Boolean(findExistingRelationship(data, projectId, toolId, relationshipType));
 }
 
 function findTemplateTool(
@@ -234,6 +243,15 @@ export default function RelationshipsPage() {
 
   function toggleTemplateItem(templateItem: RelationshipTemplateItem) {
     const key = templateKey(templateItem);
+    const tool = findTemplateTool(toolsByName, templateItem);
+    if (tool && selectedTemplateProjectId) {
+      const existing = findExistingRelationship(data, selectedTemplateProjectId, tool.id, templateItem.relationshipType);
+      if (existing) {
+        deleteRelationship(existing.id);
+        setTemplateMessage(`Removed: ${getRelationshipLabel(templateItem.relationshipType)} ${templateItem.toolName}`);
+        return;
+      }
+    }
     setSelectedTemplateKeys((current) =>
       current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
     );
@@ -355,8 +373,7 @@ export default function RelationshipsPage() {
           <div>
             <h2 className="text-base font-semibold text-slate-950">Relationship Builder</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Pick only the relationships that apply. Existing links are disabled, and missing
-              tools are clearly marked.
+              Check to add a relationship, uncheck to remove it. Missing tools are clearly marked.
             </p>
           </div>
           <span className="rounded-md bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -412,7 +429,7 @@ export default function RelationshipsPage() {
                       ),
                   );
                   const missing = !tool;
-                  const disabled = exists || missing || !selectedTemplateProjectId;
+                  const disabled = missing || !selectedTemplateProjectId;
                   const key = templateKey(item);
                   const checked = exists || selectedTemplateKeySet.has(key);
 
@@ -420,9 +437,11 @@ export default function RelationshipsPage() {
                     <label
                       key={key}
                       className={[
-                        "flex items-start gap-3 rounded-md border px-3 py-2 text-sm",
+                        "flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2 text-sm",
                         disabled
-                          ? "border-slate-200 bg-slate-50 text-slate-500"
+                          ? "cursor-default border-slate-200 bg-slate-50 text-slate-400"
+                          : exists
+                          ? "border-teal-200 bg-teal-50 text-teal-900 hover:border-rose-300 hover:bg-rose-50"
                           : "border-slate-200 bg-white text-slate-800 hover:border-indigo-300 hover:bg-indigo-50",
                       ].join(" ")}
                     >
@@ -434,11 +453,11 @@ export default function RelationshipsPage() {
                         className="mt-1 h-4 w-4 rounded border-slate-300"
                       />
                       <span className="min-w-0">
-                        <span className="block font-medium text-slate-900">
+                        <span className="block font-medium">
                           {getRelationshipLabel(item.relationshipType)} {item.toolName}
                         </span>
-                        <span className="mt-1 block text-xs text-slate-500">
-                          {exists ? "Already added" : missing ? "Tool not found" : item.notes}
+                        <span className="mt-1 block text-xs opacity-70">
+                          {exists ? "Click to remove" : missing ? "Tool not found — add it to your tools first" : item.notes}
                         </span>
                       </span>
                     </label>

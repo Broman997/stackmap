@@ -1,7 +1,6 @@
 "use client";
 
-import { Download, RotateCcw, Upload } from "lucide-react";
-import Link from "next/link";
+import { ChevronDown, ChevronUp, Download, RotateCcw, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { BACKUP_VERSION } from "@/lib/constants";
 import { resetNavOrder } from "@/lib/navigation";
@@ -25,19 +24,6 @@ type ImportPreview = {
   filename?: string;
   source: "file" | "pasted";
 };
-
-const advancedLinks = [
-  {
-    href: "/import",
-    label: "Import Suggestions",
-    description: "Stage pasted or JSON suggestion data for manual approval.",
-  },
-  {
-    href: "/suggestions",
-    label: "Suggestions",
-    description: "Review staged records before they become confirmed StackMap data.",
-  },
-];
 
 function csvEscape(value: CsvCell) {
   const text = String(value ?? "");
@@ -130,6 +116,7 @@ export default function SettingsPage() {
   const [importText, setImportText] = useState("");
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [message, setMessage] = useState("");
+  const [showImport, setShowImport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasWorkingData =
     data.projects.length + data.tools.length + data.relationships.length + data.subscriptions.length > 0;
@@ -556,49 +543,44 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
-          <h2 className="text-base font-semibold text-slate-950">Advanced</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            These pages are available for staged manual imports, but they are not part of the
-            daily sidebar.
-          </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {advancedLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 hover:border-indigo-300 hover:bg-indigo-50"
-              >
-                <span className="block text-sm font-semibold text-slate-950">{link.label}</span>
-                <span className="mt-1 block text-xs text-slate-600">{link.description}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-950">Import Full Backup</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Paste a StackMap full backup or choose a local JSON backup file.
-          </p>
-          <textarea
-            value={importText}
-            onChange={(event) => setImportText(event.target.value)}
-            rows={8}
-            className="mt-4 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            placeholder='{"app":"StackMap","version":1,"exportedAt":"...","data":{...}}'
-          />
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-950">Import Full Backup</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Restore from a StackMap JSON backup file.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setShowImport((v) => !v); setImportPreview(null); }}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              {showImport ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {showImport ? "Hide" : "Show"}
+            </button>
+          </div>
+          {showImport && (
+            <>
           <input
             ref={fileInputRef}
             type="file"
             accept="application/json,.json"
-            className="mt-3 block w-full text-sm text-slate-600"
+            className="mt-4 block w-full text-sm text-slate-600"
             onChange={async (event) => {
               const file = event.target.files?.[0];
               if (!file) return;
               previewImport(await file.text(), "file", file.name);
               if (fileInputRef.current) fileInputRef.current.value = "";
             }}
+          />
+          <p className="mt-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Or paste JSON</p>
+          <textarea
+            value={importText}
+            onChange={(event) => setImportText(event.target.value)}
+            rows={6}
+            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            placeholder='{"app":"StackMap","version":1,"exportedAt":"...","data":{...}}'
           />
           <button
             onClick={() => previewImport(importText, "pasted")}
@@ -608,6 +590,8 @@ export default function SettingsPage() {
             <Upload className="h-4 w-4" aria-hidden="true" />
             Preview Pasted Backup
           </button>
+            </>
+          )}
           {importPreview && importCounts ? (
             <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">

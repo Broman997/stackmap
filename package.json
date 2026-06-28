@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "electron:dev": "node scripts/prepare-electron.mjs && electron .",
-    "electron:build": "next build && node scripts/prepare-electron.mjs && electron-builder"
+    "electron:build": "cross-env ELECTRON_BUILD=true next build && node scripts/prepare-electron.mjs && electron-builder"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.1",
@@ -23,6 +23,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
     "eslint": "^9",
@@ -44,7 +45,9 @@
       {
         "from": ".next/standalone",
         "to": "app",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": ".next/static",
