@@ -31,6 +31,8 @@ type MapNodeData = {
   meta: string;
   notes: string;
   href?: string;
+  appStoreUrl?: string;
+  googlePlayUrl?: string;
   attentionCount: number;
   lane: "Workspace" | "AI" | "Project" | "Support";
 };
@@ -274,6 +276,8 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
           meta: `${project.type} / ${project.status}`,
           notes: project.notes,
           href: `/projects/${project.id}`,
+          appStoreUrl: project.appStoreUrl,
+          googlePlayUrl: project.googlePlayUrl,
           attentionCount,
           lane,
         },
@@ -648,6 +652,26 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
+        {selected.appStoreUrl ? (
+          <a
+            href={selected.appStoreUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-md border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+          >
+            App Store ↗
+          </a>
+        ) : null}
+        {selected.googlePlayUrl ? (
+          <a
+            href={selected.googlePlayUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-md border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+          >
+            Google Play ↗
+          </a>
+        ) : null}
         {selected.href ? (
           <Link
             href={selected.href}
