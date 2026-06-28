@@ -21,7 +21,7 @@ function startServer() {
     env: {
       ...process.env,
       PORT: String(PORT),
-      HOSTNAME: '127.0.0.1',
+      HOSTNAME: 'localhost',
     },
   });
 }
@@ -30,7 +30,7 @@ function waitForReady(maxAttempts = 40) {
   return new Promise((resolve, reject) => {
     let attempts = 0;
     function check() {
-      const req = http.get(`http://127.0.0.1:${PORT}`, () => {
+      const req = http.get(`http://localhost:${PORT}`, () => {
         resolve();
       });
       req.on('error', () => {
@@ -68,7 +68,7 @@ async function createWindow() {
 
   try {
     await waitForReady();
-    mainWindow.loadURL(`http://127.0.0.1:${PORT}`);
+    mainWindow.loadURL(`http://localhost:${PORT}`);
   } catch (err) {
     mainWindow.loadURL(
       `data:text/html,<h1 style="font-family:sans-serif;padding:2rem">StackMap failed to start</h1><p style="font-family:sans-serif;padding:0 2rem">${err.message}</p>`
