@@ -653,23 +653,13 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
       </div>
       <div className="flex flex-wrap gap-2">
         {selected.appStoreUrl ? (
-          <a
-            href={selected.appStoreUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-          >
-            App Store ↗
+          <a href={selected.appStoreUrl} target="_blank" rel="noreferrer" className="inline-flex items-center">
+            <img src="/badges/app-store.svg" alt="Download on the App Store" className="h-10" />
           </a>
         ) : null}
         {selected.googlePlayUrl ? (
-          <a
-            href={selected.googlePlayUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-          >
-            Google Play ↗
+          <a href={selected.googlePlayUrl} target="_blank" rel="noreferrer" className="inline-flex items-center">
+            <img src="/badges/google-play.png" alt="Get it on Google Play" className="h-10" />
           </a>
         ) : null}
         {selected.href ? (

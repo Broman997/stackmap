@@ -53,23 +53,13 @@ export default function ProjectDetailPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             {project.appStoreUrl ? (
-              <a
-                href={project.appStoreUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-              >
-                App Store
+              <a href={project.appStoreUrl} target="_blank" rel="noreferrer" className="inline-flex items-center">
+                <img src="/badges/app-store.svg" alt="Download on the App Store" className="h-10" />
               </a>
             ) : null}
             {project.googlePlayUrl ? (
-              <a
-                href={project.googlePlayUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-              >
-                Google Play
+              <a href={project.googlePlayUrl} target="_blank" rel="noreferrer" className="inline-flex items-center">
+                <img src="/badges/google-play.png" alt="Get it on Google Play" className="h-10" />
               </a>
             ) : null}
             <Link
