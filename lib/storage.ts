@@ -314,6 +314,15 @@ export function useStackMapData() {
   }, [data, isReady]);
 
   useEffect(() => {
+    function refreshFromStorage() {
+      const loadedData = loadData();
+      const serialized = JSON.stringify(loadedData);
+      if (lastSerializedData.current === serialized) return;
+
+      lastSerializedData.current = serialized;
+      setData(loadedData);
+    }
+
     function handleStorageEvent(event: StorageEvent) {
       if (event.key !== STORAGE_KEY || !event.newValue) return;
 
@@ -332,9 +341,11 @@ export function useStackMapData() {
       }
     }
 
+    window.addEventListener(STACKMAP_STORAGE_EVENT, refreshFromStorage);
     window.addEventListener("storage", handleStorageEvent);
 
     return () => {
+      window.removeEventListener(STACKMAP_STORAGE_EVENT, refreshFromStorage);
       window.removeEventListener("storage", handleStorageEvent);
     };
   }, []);

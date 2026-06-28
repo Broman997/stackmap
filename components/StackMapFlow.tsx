@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Expand, Shrink } from "lucide-react";
+import { Expand, RotateCcw, Shrink } from "lucide-react";
 import {
   Background,
   Controls,
@@ -23,7 +23,7 @@ import {
   getToolReviewItems,
 } from "@/lib/utils";
 
-type MapFilter = "all" | "projects" | "tools" | "connected" | "review";
+type MapFilter = "all" | "projects" | "tools" | "connected";
 
 type MapNodeData = {
   label: string;
@@ -31,16 +31,15 @@ type MapNodeData = {
   meta: string;
   notes: string;
   href?: string;
-  reviewCount: number;
+  attentionCount: number;
   lane: "Workspace" | "AI" | "Project" | "Support";
 };
 
 const filterOptions: Array<{ value: MapFilter; label: string }> = [
-  { value: "all", label: "All" },
   { value: "projects", label: "Projects" },
+  { value: "all", label: "All records" },
   { value: "tools", label: "Tools" },
   { value: "connected", label: "Connected" },
-  { value: "review", label: "Review Needed" },
 ];
 
 const workspaceToolNames = ["visual studio", "vs code", "xcode", "android studio", "cursor"];
@@ -169,7 +168,7 @@ function applyFocusedGroupLayout(
         kind: "Relationship",
         meta: `${relatedNodes.length} linked record${relatedNodes.length === 1 ? "" : "s"}`,
         notes: "",
-        reviewCount: 0,
+        attentionCount: 0,
         lane: "Support",
       },
       style: {
@@ -224,10 +223,10 @@ function applyFocusedGroupLayout(
 // ─── Inner component (has access to useReactFlow) ─────────────────────────────
 
 function StackMapFlowContent({ data }: { data: StackMapData }) {
-  const { fitView } = useReactFlow();
+  const { fitView, setCenter } = useReactFlow();
   const [selected, setSelected] = useState<MapNodeData | null>(null);
   const [focusedProjectIds, setFocusedProjectIds] = useState<string[]>([]);
-  const [filter, setFilter] = useState<MapFilter>("all");
+  const [filter, setFilter] = useState<MapFilter>("projects");
   const [relTypeFilter, setRelTypeFilter] = useState<RelationshipType | "all">("all");
   const [isFullScreen, setIsFullScreen] = useState(false);
 
@@ -249,7 +248,7 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
     };
 
     const projectNodes = data.projects.map((project) => {
-      const reviewCount = getProjectReviewItems(project, data).length;
+      const attentionCount = getProjectReviewItems(project, data).length;
       const lane = "Project" as const;
       const nodeId = `project:${project.id}`;
       return {
@@ -263,17 +262,18 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
           meta: `${project.type} / ${project.status}`,
           notes: project.notes,
           href: `/projects/${project.id}`,
-          reviewCount,
+          attentionCount,
           lane,
         },
         style: {
-          border: reviewCount ? "2px solid #d97706" : "1px solid #0891b2",
+          border: "1px solid #0891b2",
           background: "#ecfeff",
           color: "#164e63",
           borderRadius: 8,
-          padding: 10,
-          width: 210,
-          boxShadow: reviewCount ? "0 0 0 3px #fef3c7" : undefined,
+          cursor: "pointer",
+          fontWeight: 700,
+          padding: 12,
+          width: 240,
         },
       };
     });
@@ -288,7 +288,7 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
     });
 
     const toolNodes = orderedTools.map((tool) => {
-      const reviewCount = getToolReviewItems(tool, data).length;
+      const attentionCount = getToolReviewItems(tool, data).length;
       const lane = getToolLane(tool);
       return {
         id: `tool:${tool.id}`,
@@ -301,17 +301,17 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
           meta: `${tool.category} / ${tool.status}`,
           notes: tool.notes,
           href: `/tools/${tool.id}`,
-          reviewCount,
+          attentionCount,
           lane,
         },
         style: {
-          border: reviewCount ? "2px solid #d97706" : "1px solid #d97706",
+          border: "1px solid #d97706",
           background: lane === "AI" ? "#f5f3ff" : "#fffbeb",
           color: lane === "AI" ? "#4c1d95" : "#78350f",
           borderRadius: 8,
+          cursor: "pointer",
           padding: 10,
           width: 210,
-          boxShadow: reviewCount ? "0 0 0 3px #fef3c7" : undefined,
         },
       };
     });
@@ -334,12 +334,12 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
   const filteredNodes = useMemo(() => {
     return allNodes
       .filter((node) => {
+        if (focusedProjectIds.length > 0) return true;
         if (filter === "projects") return node.data.kind === "Project";
+        if (filter === "all") return true;
         if (filter === "tools") return node.data.kind === "Tool";
         if (filter === "connected") return connectedIds.has(node.id);
-        if (filter === "review") return node.data.reviewCount > 0;
-        if (focusedProjectIds.length === 0) return node.data.kind === "Project";
-        return true;
+        return node.data.kind === "Project";
       })
       .filter((node) => !relTypeConnectedIds || relTypeConnectedIds.has(node.id));
   }, [allNodes, connectedIds, filter, focusedProjectIds, relTypeConnectedIds]);
@@ -432,18 +432,30 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
 
   // Fit view whenever the layout changes meaningfully — but don't use `key` to remount,
   // so the user's pan/zoom is preserved between minor interactions.
-  const fitViewTrigger = `${filter}|${relTypeFilter}|${focusedProjectIds.join(",")}`;
+  const nodeLayoutKey = nodes
+    .map((node) => `${node.id}:${node.position.x}:${node.position.y}`)
+    .join("|");
+  const fitViewTrigger = `${filter}|${relTypeFilter}|${focusedProjectIds.join(",")}|${nodeLayoutKey}`;
   const prevTriggerRef = useRef<string>("");
   useEffect(() => {
     if (prevTriggerRef.current === fitViewTrigger) return;
     prevTriggerRef.current = fitViewTrigger;
     const id = window.requestAnimationFrame(() => {
+      if (filter === "projects" && focusedProjectIds.length === 0 && nodes.length > 0) {
+        const minX = Math.min(...nodes.map((node) => node.position.x));
+        const maxX = Math.max(...nodes.map((node) => node.position.x + 240));
+        const minY = Math.min(...nodes.map((node) => node.position.y));
+        const maxY = Math.max(...nodes.map((node) => node.position.y + 52));
+        setCenter((minX + maxX) / 2, (minY + maxY) / 2, {
+          zoom: 1,
+          duration: 250,
+        });
+        return;
+      }
       fitView({ padding: 0.18, minZoom: 0.25, maxZoom: 1 });
     });
     return () => window.cancelAnimationFrame(id);
-  }, [fitViewTrigger, fitView]);
-
-  const reviewNodeCount = allNodes.filter((n) => n.data.reviewCount > 0).length;
+  }, [filter, fitView, fitViewTrigger, focusedProjectIds.length, nodes, setCenter]);
 
   const focusedLabel =
     focusedProjectIds.length === 1
@@ -492,10 +504,20 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
     setSelected(null);
   }
 
+  function showProjects() {
+    setFilter("projects");
+    setRelTypeFilter("all");
+    clearFocus();
+  }
+
+  function resetMap() {
+    showProjects();
+  }
+
   const filterPanel = (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap gap-3 text-sm">
+    <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-3 text-xs sm:text-sm">
           <span className="inline-flex items-center gap-2 text-slate-600">
             <span className="h-3 w-3 rounded-sm border border-cyan-700 bg-cyan-50" />
             Projects
@@ -507,10 +529,6 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
           <span className="inline-flex items-center gap-2 text-slate-600">
             <span className="h-3 w-3 rounded-sm border border-violet-700 bg-violet-50" />
             AI tools
-          </span>
-          <span className="inline-flex items-center gap-2 text-slate-600">
-            <span className="h-3 w-3 rounded-sm border-2 border-amber-600 bg-white shadow-[0_0_0_3px_#fef3c7]" />
-            Review needed
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -529,31 +547,32 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
               {option.label}
             </button>
           ))}
-          <select
-            value={relTypeFilter}
-            onChange={(e) => {
-              setRelTypeFilter(e.target.value as RelationshipType | "all");
-              setFocusedProjectIds([]);
-              setSelected(null);
-            }}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
-            <option value="all">All relationships</option>
-            {RELATIONSHIP_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {getRelationshipLabel(type)}
-              </option>
-            ))}
-          </select>
-          {focusedProjectIds.length > 0 && (
-            <button
-              type="button"
-              onClick={clearFocus}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          {focusedProjectIds.length === 0 && filter !== "projects" && (
+            <select
+              value={relTypeFilter}
+              onChange={(e) => {
+                setRelTypeFilter(e.target.value as RelationshipType | "all");
+                setFocusedProjectIds([]);
+                setSelected(null);
+              }}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
             >
-              Show all
-            </button>
+              <option value="all">All relationships</option>
+              {RELATIONSHIP_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {getRelationshipLabel(type)}
+                </option>
+              ))}
+            </select>
           )}
+          <button
+            type="button"
+            onClick={resetMap}
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            Reset map
+          </button>
           <button
             type="button"
             onClick={() => setIsFullScreen((v) => !v)}
@@ -564,16 +583,16 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
             ) : (
               <Expand className="h-4 w-4" aria-hidden="true" />
             )}
-            {isFullScreen ? "Exit full screen" : "Full screen map"}
+            {isFullScreen ? "Exit focus mode" : "Focus mode"}
           </button>
         </div>
       </div>
 
-      {focusedProjectIds.length === 0 && filter === "all" ? (
-        <p className="mt-4 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600">
-          Click a project to explore its connections.{" "}
+      {focusedProjectIds.length === 0 && filter === "projects" ? (
+        <p className="mt-3 rounded-md bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800">
+          Click any project to map its tools and relationships.{" "}
           Hold{" "}
-          <kbd className="rounded border border-slate-300 bg-white px-1 py-0.5 font-mono text-xs">
+          <kbd className="rounded border border-indigo-200 bg-white px-1 py-0.5 font-mono text-xs">
             Ctrl
           </kbd>{" "}
           and click to select multiple projects.
@@ -588,94 +607,45 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
         </p>
       ) : null}
 
-      <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-4">
+      <div className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
         <p>{nodes.length} visible nodes</p>
         <p>{edges.length} visible edges</p>
         <p>{connectedIds.size} connected records</p>
-        <p>{reviewNodeCount} review-needed nodes</p>
       </div>
     </section>
   );
 
-  const focusedRelationshipsPanel = focusedProjectIds.length > 0 ? (
-    <div className="border-t border-slate-200 pt-4">
-      <h3 className="text-sm font-semibold text-slate-950">Relationships</h3>
-      <div className="mt-3 space-y-2">
-        {focusedRelationships.map((r) => (
-          <div key={r.id} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-            <p className="font-semibold text-slate-900">
-              {r.direction === "outgoing"
-                ? `${r.primaryLabel} ${r.label} ${r.otherName}`
-                : `${r.otherName} ${r.label} ${r.primaryLabel}`}
-            </p>
-            <p className="mt-1 text-slate-500">
-              {r.fromName} &rarr; {r.toName}
-            </p>
-          </div>
-        ))}
-        {focusedRelationships.length === 0 && (
-          <p className="text-sm text-slate-500">No direct relationships.</p>
-        )}
-      </div>
-    </div>
-  ) : null;
-
-  const detailsPanel = (
-    <aside className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 className="text-base font-semibold text-slate-950">Node Details</h2>
-      {selected ? (
-        <div className="mt-4 space-y-3 text-sm">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {selected.kind}
-            </p>
-            <p className="mt-1 text-lg font-semibold text-slate-950">{selected.label}</p>
-          </div>
-          <p className="rounded-md bg-slate-100 px-3 py-2 text-slate-700">{selected.meta}</p>
-          {selected.reviewCount ? (
-            <p className="rounded-md bg-amber-50 px-3 py-2 font-medium text-amber-800">
-              {selected.reviewCount} review item{selected.reviewCount === 1 ? "" : "s"}
-            </p>
-          ) : (
-            <p className="rounded-md bg-emerald-50 px-3 py-2 font-medium text-emerald-800">
-              No review flags
-            </p>
-          )}
-          <p className="text-slate-600">{selected.notes || "No notes yet."}</p>
-          {selected.href && (
-            <Link
-              href={selected.href}
-              className="inline-flex rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              Open details
-            </Link>
-          )}
-        </div>
-      ) : (
-        <p className="mt-4 text-sm text-slate-500">
-          Select any project or tool node to view details.
+  const selectedSummary = focusedProjectIds.length > 0 && selected ? (
+    <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+          {selected.kind}
         </p>
-      )}
-      <div className="mt-6 border-t border-slate-200 pt-4 text-sm text-slate-600">
-        <p>{data.projects.length} projects</p>
-        <p>{data.tools.length} tools</p>
-        <p>{data.relationships.length} relationships</p>
+        <h2 className="text-lg font-semibold text-slate-950">{selected.label}</h2>
+        <p className="mt-1 text-sm text-indigo-900">
+          {focusedRelationships.length} direct relationship
+          {focusedRelationships.length === 1 ? "" : "s"} grouped by type on the map.
+        </p>
       </div>
-      {focusedProjectIds.length > 0 ? (
-        <div className="mt-4">{focusedRelationshipsPanel}</div>
-      ) : (
-        <div className="mt-4 space-y-2 text-xs text-slate-500">
-          {data.relationships.slice(0, 5).map((r) => (
-            <p key={r.id}>
-              {getEntityName(data, r.fromType, r.fromId)}{" "}
-              {getRelationshipLabel(r.relationshipType)}{" "}
-              {getEntityName(data, r.toType, r.toId)}
-            </p>
-          ))}
-        </div>
-      )}
-    </aside>
-  );
+      <div className="flex flex-wrap gap-2">
+        {selected.href ? (
+          <Link
+            href={selected.href}
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            Open {selected.kind.toLowerCase()}
+          </Link>
+        ) : null}
+        <button
+          type="button"
+          onClick={showProjects}
+          className="rounded-md border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+        >
+          Show projects
+        </button>
+      </div>
+    </section>
+  ) : null;
 
   const canvas = (
     <ReactFlow
@@ -710,11 +680,9 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col gap-3 overflow-auto bg-slate-50 p-4">
         {filterPanel}
-        <div className="flex min-h-0 flex-1 gap-4">
-          <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            {canvas}
-          </div>
-          <div className="w-80 shrink-0 overflow-auto">{detailsPanel}</div>
+        {selectedSummary}
+        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          {canvas}
         </div>
       </div>
     );
@@ -723,11 +691,9 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
   return (
     <div className="space-y-4">
       {filterPanel}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          {canvas}
-        </div>
-        {detailsPanel}
+      {selectedSummary}
+      <div className="h-[calc(100vh-18rem)] min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        {canvas}
       </div>
     </div>
   );

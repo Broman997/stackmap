@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { EntityTable, type TableColumn } from "@/components/EntityTable";
 import { ToolForm } from "@/components/ToolForm";
 import { PAID_STATUSES, TOOL_CATEGORIES, TOOL_STATUSES } from "@/lib/constants";
@@ -49,6 +49,30 @@ function ToolsPageState({ searchParams }: { searchParams: URLSearchParams }) {
   );
   const [costFilter, setCostFilter] = useState(() => getCostFilter(searchParams));
 
+  function clearEditQuery() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("edit")) return;
+
+    params.delete("edit");
+    const query = params.toString();
+    window.history.replaceState(null, "", `/tools${query ? `?${query}` : ""}`);
+  }
+
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId || editing?.id === editId) return;
+
+    const tool = data.tools.find((item) => item.id === editId);
+    if (!tool) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setEditing(tool);
+      setIsAdding(false);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [data.tools, editing?.id, searchParams]);
+
   const filteredTools = data.tools.filter(
     (tool) =>
       (categoryFilter === "all" || tool.category === categoryFilter) &&
@@ -76,7 +100,7 @@ function ToolsPageState({ searchParams }: { searchParams: URLSearchParams }) {
       sortValue: (item) => item.renewalDate ? new Date(item.renewalDate).getTime() : null,
     },
     {
-      header: "Review",
+      header: "Attention",
       cell: (item) => {
         const count = getToolReviewItems(item, data).length;
         return count ? `${count} item${count === 1 ? "" : "s"}` : "Clear";
@@ -104,6 +128,7 @@ function ToolsPageState({ searchParams }: { searchParams: URLSearchParams }) {
           key={editing ? editing.id : "new-tool"}
           existingTools={data.tools}
           initialValue={editing ?? undefined}
+          reviewItems={editing ? getToolReviewItems(editing, data) : []}
           onSelectExistingTool={(tool) => {
             setEditing(tool);
             setIsAdding(false);
@@ -111,12 +136,14 @@ function ToolsPageState({ searchParams }: { searchParams: URLSearchParams }) {
           onCancel={() => {
             setIsAdding(false);
             setEditing(null);
+            clearEditQuery();
           }}
           onSave={(value) => {
             if (editing) updateTool(editing.id, value);
             else addTool(value);
             setIsAdding(false);
             setEditing(null);
+            clearEditQuery();
           }}
         />
       )}

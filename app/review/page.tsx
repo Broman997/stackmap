@@ -1,29 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useStackMapData } from "@/lib/storage";
-import { formatDate, getProjectReviewItems, getToolReviewItems } from "@/lib/utils";
+import { getProjectReviewItems, getToolReviewItems } from "@/lib/utils";
 
 type ChecklistRecord = {
   id: string;
   name: string;
   href: string;
+  editHref: string;
   kind: "Project" | "Tool";
-  lastReviewedAt?: string;
   items: string[];
 };
 
 const PRIORITY_ITEMS = [
-  "Unknown paid status",
-  "Missing renewal details",
-  "No relationships",
-  "Missing login URL",
-  "Missing notes",
-  "Never reviewed",
-  "Review is older than 90 days",
-  "Review tool status",
-  "Not active",
+  "Missing project name",
+  "Missing tool name",
+  "Missing project type",
+  "Missing tool category",
+  "Missing project status",
+  "Choose tool status",
+  "Paid tool has no cost",
+  "Missing annual renewal date",
 ];
 
 function sortChecklistRecords(first: ChecklistRecord, second: ChecklistRecord) {
@@ -47,28 +46,24 @@ function sortChecklistRecords(first: ChecklistRecord, second: ChecklistRecord) {
   );
 }
 
-function countRecordsWith(records: ChecklistRecord[], label: string) {
-  return records.filter((record) => record.items.includes(label)).length;
-}
-
 export default function ReviewPage() {
-  const { data, markProjectReviewed, markToolReviewed } = useStackMapData();
+  const { data } = useStackMapData();
 
   const records: ChecklistRecord[] = [
     ...data.projects.map((project) => ({
       id: project.id,
       name: project.name,
       href: `/projects/${project.id}`,
+      editHref: `/projects?edit=${encodeURIComponent(project.id)}`,
       kind: "Project" as const,
-      lastReviewedAt: project.lastReviewedAt,
       items: getProjectReviewItems(project, data),
     })),
     ...data.tools.map((tool) => ({
       id: tool.id,
       name: tool.name,
       href: `/tools/${tool.id}`,
+      editHref: `/tools?edit=${encodeURIComponent(tool.id)}`,
       kind: "Tool" as const,
-      lastReviewedAt: tool.lastReviewedAt,
       items: getToolReviewItems(tool, data),
     })),
   ]
@@ -76,35 +71,30 @@ export default function ReviewPage() {
     .sort(sortChecklistRecords);
 
   const totalItems = records.reduce((sum, record) => sum + record.items.length, 0);
-  const missingRelationships = countRecordsWith(records, "No relationships");
-  const unknownPaid = countRecordsWith(records, "Unknown paid status");
-
-  function markReviewed(record: ChecklistRecord) {
-    if (record.kind === "Project") markProjectReviewed(record.id);
-    else markToolReviewed(record.id);
-  }
+  const toolRecords = records.filter((record) => record.kind === "Tool").length;
+  const projectRecords = records.filter((record) => record.kind === "Project").length;
 
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-semibold text-slate-950">Checklist</h1>
+        <h1 className="text-2xl font-semibold text-slate-950">Needs Attention</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Records that may need missing costs, links, notes, review dates, or relationships.
+          Records with required fields or cost details that need to be fixed.
         </p>
       </header>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label="Checklist Items" value={totalItems} detail="Total things to check" />
+        <SummaryCard label="Issues" value={totalItems} detail="Required fixes" />
         <SummaryCard label="Records" value={records.length} detail="Projects and tools" />
-        <SummaryCard label="Unknown Paid" value={unknownPaid} detail="Tools needing cost status" />
-        <SummaryCard label="No Relationships" value={missingRelationships} detail="Records not connected yet" />
+        <SummaryCard label="Projects" value={projectRecords} detail="Need attention" />
+        <SummaryCard label="Tools" value={toolRecords} detail="Need attention" />
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-4 py-3">
           <h2 className="text-base font-semibold text-slate-950">Needs Attention</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Open a record to fill in details, then mark it reviewed when it looks right.
+            Use Fix to open the edit form. Optional notes, URLs, and relationships are not flagged here.
           </p>
         </div>
 
@@ -121,9 +111,6 @@ export default function ReviewPage() {
                       {record.name}
                     </Link>
                   </div>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Last reviewed: {formatDate(record.lastReviewedAt ?? "")}
-                  </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {record.items.map((item) => (
                       <span key={item} className="rounded-md bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
@@ -133,22 +120,13 @@ export default function ReviewPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    href={record.href}
-                    className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    Open
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => markReviewed(record)}
-                    className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                  >
-                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                    Mark Reviewed
-                  </button>
-                </div>
+                <Link
+                  href={record.editHref}
+                  className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                  Fix
+                </Link>
               </div>
             </article>
           ))}
@@ -157,7 +135,7 @@ export default function ReviewPage() {
             <div className="px-4 py-10 text-center">
               <p className="font-medium text-slate-900">Nothing needs attention right now.</p>
               <p className="mt-2 text-sm text-slate-500">
-                New checklist items will appear here when records are missing details or reviews get stale.
+                New items will appear here only when required fields or cost details need fixing.
               </p>
             </div>
           ) : null}

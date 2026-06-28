@@ -221,12 +221,14 @@ const presetGroups = Array.from(new Set(toolPresets.map((preset) => preset.group
 export function ToolForm({
   existingTools = [],
   initialValue,
+  reviewItems = [],
   onSelectExistingTool,
   onSave,
   onCancel,
 }: {
   existingTools?: Tool[];
   initialValue?: Tool;
+  reviewItems?: string[];
   onSelectExistingTool?: (tool: Tool) => void;
   onSave: (value: ToolFormValue) => void;
   onCancel: () => void;
@@ -335,6 +337,18 @@ export function ToolForm({
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {error}
         </p>
+      ) : null}
+      {reviewItems.length ? (
+        <section className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3">
+          <h2 className="text-sm font-semibold text-amber-950">Issues to fix</h2>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {reviewItems.map((item) => (
+              <span key={item} className="rounded-md bg-white px-2 py-1 text-xs font-medium text-amber-800">
+                {item}
+              </span>
+            ))}
+          </div>
+        </section>
       ) : null}
       <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
         Tool records store details like login, cost, renewal, and status. Add relationship labels
@@ -492,6 +506,9 @@ export function ToolForm({
             onChange={(event) => updateValue("renewalDate", event.target.value)}
             className="rounded-md border border-slate-300 px-3 py-2 font-normal"
           />
+          <span className="text-xs font-normal text-slate-500">
+            Use this for annual or yearly renewals. Monthly tools can leave this blank.
+          </span>
         </label>
       </div>
       <label className="grid gap-1 text-sm font-medium text-slate-700">

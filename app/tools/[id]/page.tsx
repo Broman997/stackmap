@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Plus } from "lucide-react";
+import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import { useStackMapData } from "@/lib/storage";
 import {
   formatCurrency,
@@ -14,7 +14,7 @@ import {
 
 export default function ToolDetailPage() {
   const params = useParams<{ id: string }>();
-  const { data, markToolReviewed } = useStackMapData();
+  const { data } = useStackMapData();
   const tool = data.tools.find((item) => item.id === params.id);
 
   if (!tool) {
@@ -55,6 +55,13 @@ export default function ToolDetailPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
+              href={`/tools?edit=${encodeURIComponent(tool.id)}`}
+              className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              <Pencil className="h-4 w-4" aria-hidden="true" />
+              Edit Tool
+            </Link>
+            <Link
               href={`/relationships?fromType=tool&fromId=${encodeURIComponent(tool.id)}`}
               className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
             >
@@ -68,14 +75,6 @@ export default function ToolDetailPage() {
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add Subscription
             </Link>
-            <button
-              type="button"
-              onClick={() => markToolReviewed(tool.id)}
-              className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              Mark Reviewed
-            </button>
           </div>
         </div>
       </header>
@@ -87,7 +86,6 @@ export default function ToolDetailPage() {
             <div className="flex justify-between gap-4"><dt className="text-slate-500">Status</dt><dd className="font-medium text-slate-900">{tool.status}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-slate-500">Paid</dt><dd className="font-medium text-slate-900">{tool.paidStatus}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-slate-500">Renewal</dt><dd className="font-medium text-slate-900">{formatDate(tool.renewalDate)}</dd></div>
-            <div className="flex justify-between gap-4"><dt className="text-slate-500">Last reviewed</dt><dd className="font-medium text-slate-900">{formatDate(tool.lastReviewedAt ?? "")}</dd></div>
             <div className="flex justify-between gap-4"><dt className="text-slate-500">Source</dt><dd className="font-medium text-slate-900">{tool.source ?? "manual"}</dd></div>
             {tool.primaryLanguage ? (
               <div className="flex justify-between gap-4"><dt className="text-slate-500">Language</dt><dd className="font-medium text-slate-900">{tool.primaryLanguage}</dd></div>
@@ -119,11 +117,11 @@ export default function ToolDetailPage() {
           </dl>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-950">Review Needed</h2>
+          <h2 className="text-base font-semibold text-slate-950">Needs Attention</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {reviewItems.length ? reviewItems.map((item) => (
               <span key={item} className="rounded-md bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">{item}</span>
-            )) : <p className="text-sm text-slate-500">No obvious review items.</p>}
+            )) : <p className="text-sm text-slate-500">No required fixes.</p>}
           </div>
         </div>
       </section>

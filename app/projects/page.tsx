@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EntityTable, type TableColumn } from "@/components/EntityTable";
 import { ProjectForm } from "@/components/ProjectForm";
 import { PROJECT_STATUSES, PROJECT_TYPES } from "@/lib/constants";
@@ -15,6 +15,30 @@ export default function ProjectsPage() {
   const [editing, setEditing] = useState<Project | null>(null);
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  function clearEditQuery() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("edit")) return;
+
+    params.delete("edit");
+    const query = params.toString();
+    window.history.replaceState(null, "", `/projects${query ? `?${query}` : ""}`);
+  }
+
+  useEffect(() => {
+    const editId = new URLSearchParams(window.location.search).get("edit");
+    if (!editId || editing?.id === editId) return;
+
+    const project = data.projects.find((item) => item.id === editId);
+    if (!project) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setEditing(project);
+      setIsAdding(false);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [data.projects, editing?.id]);
 
   const filteredProjects = data.projects.filter(
     (project) =>
@@ -31,7 +55,7 @@ export default function ProjectsPage() {
     { header: "Type", cell: (item) => item.type, sortValue: (item) => item.type },
     { header: "Status", cell: (item) => item.status, sortValue: (item) => item.status },
     {
-      header: "Review",
+      header: "Attention",
       cell: (item) => {
         const count = getProjectReviewItems(item, data).length;
         return count ? `${count} item${count === 1 ? "" : "s"}` : "Clear";
@@ -58,15 +82,18 @@ export default function ProjectsPage() {
         <ProjectForm
           key={editing ? editing.id : "new-project"}
           initialValue={editing ?? undefined}
+          reviewItems={editing ? getProjectReviewItems(editing, data) : []}
           onCancel={() => {
             setIsAdding(false);
             setEditing(null);
+            clearEditQuery();
           }}
           onSave={(value) => {
             if (editing) updateProject(editing.id, value);
             else addProject(value);
             setIsAdding(false);
             setEditing(null);
+            clearEditQuery();
           }}
         />
       )}

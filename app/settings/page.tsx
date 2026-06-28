@@ -4,6 +4,7 @@ import { Download, RotateCcw, Upload } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { BACKUP_VERSION } from "@/lib/constants";
+import { resetNavOrder } from "@/lib/navigation";
 import { useStackMapData, useStackMapStorageMeta, writeBackupMeta } from "@/lib/storage";
 import type { StackMapData } from "@/lib/types";
 
@@ -355,6 +356,11 @@ export default function SettingsPage() {
     return window.confirm(`${backupWarning}\n\n${action}\n\nContinue without exporting a new full backup?`);
   }
 
+  function restoreDefaultNavOrder() {
+    resetNavOrder();
+    setMessage("Reset sidebar menu order.");
+  }
+
   return (
     <div className="space-y-5">
       <header>
@@ -514,6 +520,24 @@ export default function SettingsPage() {
             <button onClick={exportAllCsv} className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
               <Download className="h-4 w-4" aria-hidden="true" />
               All CSV
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-950">Sidebar Menu Order</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Drag menu items directly in the left sidebar to reorder them.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={restoreDefaultNavOrder}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Reset order
             </button>
           </div>
         </div>

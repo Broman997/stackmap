@@ -71,41 +71,39 @@ export function toNumber(value: FormDataEntryValue | null) {
 }
 
 export function getProjectReviewItems(project: Project, data: StackMapData) {
-  const linkedRelationships = data.relationships.filter(
-    (relationship) =>
-      (relationship.fromType === "project" && relationship.fromId === project.id) ||
-      (relationship.toType === "project" && relationship.toId === project.id),
-  );
+  void data;
   const items: string[] = [];
-  const reviewedDaysAgo = daysSince(project.lastReviewedAt);
-  if (!project.lastReviewedAt) items.push("Never reviewed");
-  else if (reviewedDaysAgo !== null && reviewedDaysAgo > 90) items.push("Review is older than 90 days");
-  if (!project.notes.trim()) items.push("Missing notes");
-  if (project.status !== "active") items.push("Not active");
-  if (linkedRelationships.length === 0) items.push("No relationships");
+  if (!project.name.trim()) items.push("Missing project name");
+  if (!project.type) items.push("Missing project type");
+  if (!project.status) items.push("Missing project status");
   return items;
 }
 
 export function getToolReviewItems(tool: Tool, data: StackMapData) {
-  const linkedRelationships = data.relationships.filter(
-    (relationship) =>
-      (relationship.fromType === "tool" && relationship.fromId === tool.id) ||
-      (relationship.toType === "tool" && relationship.toId === tool.id),
-  );
   const linkedSubscriptions = data.subscriptions.filter(
     (subscription) => subscription.toolId === tool.id,
   );
   const items: string[] = [];
-  const reviewedDaysAgo = daysSince(tool.lastReviewedAt);
-  if (!tool.lastReviewedAt) items.push("Never reviewed");
-  else if (reviewedDaysAgo !== null && reviewedDaysAgo > 90) items.push("Review is older than 90 days");
-  if (tool.paidStatus === "unknown") items.push("Unknown paid status");
-  if (tool.paidStatus === "paid" && !tool.renewalDate && linkedSubscriptions.length === 0) {
-    items.push("Missing renewal details");
+  const billingCycle = tool.billingCycle.trim().toLowerCase();
+  if (!tool.name.trim()) items.push("Missing tool name");
+  if (!tool.category) items.push("Missing tool category");
+  if (!tool.status || tool.status === "unknown") items.push("Choose tool status");
+  if (
+    tool.paidStatus === "paid" &&
+    tool.monthlyCost <= 0 &&
+    tool.annualCost <= 0 &&
+    linkedSubscriptions.length === 0
+  ) {
+    items.push("Paid tool has no cost");
   }
-  if (!tool.loginUrl.trim()) items.push("Missing login URL");
-  if (tool.status === "unused" || tool.status === "unknown") items.push("Review tool status");
-  if (linkedRelationships.length === 0) items.push("No relationships");
+  if (
+    tool.paidStatus === "paid" &&
+    !tool.renewalDate &&
+    linkedSubscriptions.length === 0 &&
+    (tool.annualCost > 0 || billingCycle.includes("annual") || billingCycle.includes("year"))
+  ) {
+    items.push("Missing annual renewal date");
+  }
   return items;
 }
 

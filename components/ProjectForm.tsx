@@ -15,10 +15,12 @@ const defaultValue: ProjectFormValue = {
 
 export function ProjectForm({
   initialValue,
+  reviewItems = [],
   onSave,
   onCancel,
 }: {
   initialValue?: Project;
+  reviewItems?: string[];
   onSave: (value: ProjectFormValue) => void;
   onCancel: () => void;
 }) {
@@ -53,6 +55,18 @@ export function ProjectForm({
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {error}
         </p>
+      ) : null}
+      {reviewItems.length ? (
+        <section className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3">
+          <h2 className="text-sm font-semibold text-amber-950">Issues to fix</h2>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {reviewItems.map((item) => (
+              <span key={item} className="rounded-md bg-white px-2 py-1 text-xs font-medium text-amber-800">
+                {item}
+              </span>
+            ))}
+          </div>
+        </section>
       ) : null}
       <div className="grid gap-4 md:grid-cols-3">
         <label className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-1">

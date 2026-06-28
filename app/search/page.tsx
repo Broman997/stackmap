@@ -62,7 +62,7 @@ export default function SearchPage() {
         label: project.type,
         title: project.name,
         subtitle: project.notes || "No notes",
-        meta: `${project.status} / ${getProjectReviewItems(project, data).length} review items`,
+        meta: `${project.status} / ${getProjectReviewItems(project, data).length} attention items`,
         href: `/projects/${project.id}`,
         searchText: [
           "project",
@@ -78,7 +78,7 @@ export default function SearchPage() {
         label: tool.category,
         title: tool.name,
         subtitle: tool.notes || tool.websiteUrl || "No notes",
-        meta: `${tool.status} / ${tool.paidStatus} / ${getToolReviewItems(tool, data).length} review items`,
+        meta: `${tool.status} / ${tool.paidStatus} / ${getToolReviewItems(tool, data).length} attention items`,
         href: `/tools/${tool.id}`,
         searchText: [
           "tool",
