@@ -23,6 +23,31 @@ function Test-StackMapReady {
   }
 }
 
+function Stop-RunningServer {
+  # Try PID file first (new name)
+  foreach ($name in @("stackmap.pid", "stackmap-dev.pid")) {
+    $pf = Join-Path $logDir $name
+    if (Test-Path $pf) {
+      $serverPid = [int](Get-Content -Raw $pf)
+      $proc = Get-Process -Id $serverPid -ErrorAction SilentlyContinue
+      if ($proc) {
+        Stop-Process -Id $serverPid -Force
+        Write-Host "Stopped previous StackMap server (PID $serverPid)." -ForegroundColor Yellow
+        Start-Sleep -Seconds 2
+      }
+      Remove-Item -LiteralPath $pf -Force -ErrorAction SilentlyContinue
+    }
+  }
+
+  # Fallback: kill anything on port 3000
+  $connection = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($connection) {
+    Stop-Process -Id $connection.OwningProcess -Force -ErrorAction SilentlyContinue
+    Write-Host "Stopped process on port $port." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+  }
+}
+
 Write-Host ""
 Write-Host "Starting StackMap..." -ForegroundColor Cyan
 Write-Host "Folder: $root"
@@ -38,7 +63,10 @@ if (!(Test-Path $nextBin)) {
   }
 }
 
-if (Test-StackMapReady) {
+if ($Rebuild) {
+  Write-Host "Stopping any running server before rebuild..." -ForegroundColor Yellow
+  Stop-RunningServer
+} elseif (Test-StackMapReady) {
   Write-Host "StackMap is already running at $url" -ForegroundColor Green
   Start-Process $url
   exit 0
