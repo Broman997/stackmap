@@ -260,7 +260,7 @@ export default function DashboardPage() {
         <section className="rounded-lg border border-indigo-100 bg-indigo-50 p-5 text-sm text-slate-700">
           <h2 className="text-base font-semibold text-slate-950">Welcome to StackMap!</h2>
           <p className="mt-2 leading-relaxed">
-            StackMap is a free tool built by an indie developer to help track the projects, tools, subscriptions, and AI services that make up your app stack. If you find it useful, the Windows desktop app is completely free and safe to download — just click the button above. Your data never leaves your device and no account is ever required.
+            StackMap is a free tool built by an indie developer to help track the projects, tools, subscriptions, and AI services that make up your app stack. If you find it useful, the desktop app is completely free and safe to download for both Windows and Mac — just click the button above. Your data never leaves your device and no account is ever required.
           </p>
           <p className="mt-3 leading-relaxed">
             What you are looking at right now is sample data based on real indie apps — <strong>LogIT</strong>, <strong>KeyMatch Pro</strong>, and <strong>Home Inventory Vault</strong>. It is there to give you a feel for how the tool works with actual projects and tools.
