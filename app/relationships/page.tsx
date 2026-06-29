@@ -8,6 +8,19 @@ import { useStackMapData } from "@/lib/storage";
 import type { EntityType, Relationship, RelationshipType, StackMapData } from "@/lib/types";
 import { getEntityName, getRelationshipLabel } from "@/lib/utils";
 
+const ALL_RELATIONSHIP_TYPES: RelationshipType[] = [
+  "uses",
+  "assists_with",
+  "depends_on",
+  "deploys_to",
+  "stores_data_in",
+  "pays_for",
+  "integrates_with",
+  "publishes_to",
+  "markets_through",
+  "other",
+];
+
 type RelationshipTemplateItem = {
   group: string;
   toolName: string;
@@ -204,6 +217,10 @@ function findTemplateTool(
   return names.map((name) => toolsByName.get(normalizeName(name))).find(Boolean);
 }
 
+function baseKey(templateItem: RelationshipTemplateItem) {
+  return `${templateItem.group}:${templateItem.toolName}`;
+}
+
 export default function RelationshipsPage() {
   const { data, addRelationship, updateRelationship, deleteRelationship } = useStackMapData();
   const [isAdding, setIsAdding] = useState(false);
@@ -215,15 +232,33 @@ export default function RelationshipsPage() {
   }
   const [defaultFrom, setDefaultFrom] = useState<{ type: EntityType; id: string } | undefined>();
   const [templateProjectId, setTemplateProjectId] = useState("");
-  const [selectedTemplateKeys, setSelectedTemplateKeys] = useState<string[]>([]);
+  const [selectedToolBaseKeys, setSelectedToolBaseKeys] = useState<string[]>([]);
+  const [itemRelationshipTypes, setItemRelationshipTypes] = useState<Record<string, RelationshipType>>({});
   const [templateMessage, setTemplateMessage] = useState("");
-  const selectedTemplateProjectId = templateProjectId || data.projects[0]?.id || "";
-  const selectedTemplateKeySet = new Set(selectedTemplateKeys);
+  const selectedTemplateProjectId = templateProjectId;
+  const selectedToolBaseKeySet = new Set(selectedToolBaseKeys);
   const toolsByName = new Map(data.tools.map((tool) => [normalizeName(tool.name), tool]));
   const relationshipBuilderGroups = getRelationshipBuilderGroups(data);
   const relationshipBuilderItems: RelationshipTemplateItem[] = relationshipBuilderGroups.flatMap(
     (group) => group.items.map((item) => ({ ...item, group: group.name })),
   );
+
+  function effectiveRelationshipType(templateItem: RelationshipTemplateItem): RelationshipType {
+    const bKey = baseKey(templateItem);
+    if (itemRelationshipTypes[bKey]) return itemRelationshipTypes[bKey];
+    const tool = findTemplateTool(toolsByName, templateItem);
+    if (tool && selectedTemplateProjectId) {
+      const existing = data.relationships.find(
+        (r) =>
+          r.fromType === "project" &&
+          r.fromId === selectedTemplateProjectId &&
+          r.toType === "tool" &&
+          r.toId === tool.id,
+      );
+      if (existing) return existing.relationshipType;
+    }
+    return templateItem.relationshipType;
+  }
 
   useEffect(() => {
     window.setTimeout(() => {
@@ -237,29 +272,26 @@ export default function RelationshipsPage() {
     }, 0);
   }, []);
 
-  function templateKey(templateItem: RelationshipTemplateItem) {
-    return `${templateItem.group}:${templateItem.relationshipType}:${templateItem.toolName}`;
-  }
-
   function toggleTemplateItem(templateItem: RelationshipTemplateItem) {
-    const key = templateKey(templateItem);
+    const bKey = baseKey(templateItem);
+    const effectiveType = effectiveRelationshipType(templateItem);
     const tool = findTemplateTool(toolsByName, templateItem);
     if (tool && selectedTemplateProjectId) {
-      const existing = findExistingRelationship(data, selectedTemplateProjectId, tool.id, templateItem.relationshipType);
+      const existing = findExistingRelationship(data, selectedTemplateProjectId, tool.id, effectiveType);
       if (existing) {
         deleteRelationship(existing.id);
-        setTemplateMessage(`Removed: ${getRelationshipLabel(templateItem.relationshipType)} ${templateItem.toolName}`);
+        setTemplateMessage(`Removed: ${getRelationshipLabel(effectiveType)} ${templateItem.toolName}`);
         return;
       }
     }
-    setSelectedTemplateKeys((current) =>
-      current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
+    setSelectedToolBaseKeys((current) =>
+      current.includes(bKey) ? current.filter((k) => k !== bKey) : [...current, bKey],
     );
   }
 
   function addSelectedRelationships() {
     if (!selectedTemplateProjectId) {
-      setTemplateMessage("Add a project before using the relationship builder.");
+      setTemplateMessage("Select a project before using the relationship builder.");
       return;
     }
 
@@ -267,7 +299,7 @@ export default function RelationshipsPage() {
     const skipped: string[] = [];
     const missing: string[] = [];
     const selectedItems = relationshipBuilderItems.filter((item) =>
-      selectedTemplateKeySet.has(templateKey(item)),
+      selectedToolBaseKeySet.has(baseKey(item)),
     );
 
     if (!selectedItems.length) {
@@ -277,20 +309,14 @@ export default function RelationshipsPage() {
 
     selectedItems.forEach((templateItem) => {
       const tool = findTemplateTool(toolsByName, templateItem);
+      const effectiveType = effectiveRelationshipType(templateItem);
       if (!tool) {
         missing.push(templateItem.toolName);
         return;
       }
 
-      if (
-        relationshipExists(
-          data,
-          selectedTemplateProjectId,
-          tool.id,
-          templateItem.relationshipType,
-        )
-      ) {
-        skipped.push(`${getRelationshipLabel(templateItem.relationshipType)} ${tool.name}`);
+      if (relationshipExists(data, selectedTemplateProjectId, tool.id, effectiveType)) {
+        skipped.push(`${getRelationshipLabel(effectiveType)} ${tool.name}`);
         return;
       }
 
@@ -299,10 +325,10 @@ export default function RelationshipsPage() {
         fromId: selectedTemplateProjectId,
         toType: "tool",
         toId: tool.id,
-        relationshipType: templateItem.relationshipType,
+        relationshipType: effectiveType,
         notes: templateItem.notes,
       });
-      added.push(`${getRelationshipLabel(templateItem.relationshipType)} ${tool.name}`);
+      added.push(`${getRelationshipLabel(effectiveType)} ${tool.name}`);
     });
 
     const parts = [
@@ -311,9 +337,15 @@ export default function RelationshipsPage() {
       missing.length ? `Missing tools: ${missing.join(", ")}.` : "",
     ].filter(Boolean);
 
-    setSelectedTemplateKeys([]);
+    setSelectedToolBaseKeys([]);
     setTemplateMessage(parts.join(" "));
   }
+
+  const tableRelationships = selectedTemplateProjectId
+    ? data.relationships.filter(
+        (r) => r.fromType === "project" && r.fromId === selectedTemplateProjectId,
+      )
+    : data.relationships;
 
   const columns: TableColumn<Relationship>[] = [
     {
@@ -373,7 +405,7 @@ export default function RelationshipsPage() {
           <div>
             <h2 className="text-base font-semibold text-slate-950">Relationship Builder</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Check to add a relationship, uncheck to remove it. Missing tools are clearly marked.
+              Check a tool to add it, uncheck to remove it. Change the dropdown to set the relationship type before checking.
             </p>
           </div>
           <span className="rounded-md bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -387,11 +419,13 @@ export default function RelationshipsPage() {
               value={selectedTemplateProjectId}
               onChange={(event) => {
                 setTemplateProjectId(event.target.value);
-                setSelectedTemplateKeys([]);
+                setSelectedToolBaseKeys([]);
+                setItemRelationshipTypes({});
                 setTemplateMessage("");
               }}
               className="rounded-md border border-slate-300 px-3 py-2 font-normal"
             >
+              <option value="">Select a project...</option>
               {data.projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
@@ -402,7 +436,7 @@ export default function RelationshipsPage() {
           <button
             type="button"
             onClick={addSelectedRelationships}
-            disabled={!data.projects.length || !selectedTemplateKeys.length}
+            disabled={!selectedToolBaseKeys.length}
             className="inline-flex items-center justify-center gap-2 self-end rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             <Wand2 className="h-4 w-4" aria-hidden="true" />
@@ -418,24 +452,20 @@ export default function RelationshipsPage() {
                 {group.items.map((rawItem) => {
                   const item = { ...rawItem, group: group.name };
                   const tool = findTemplateTool(toolsByName, item);
+                  const effectiveType = effectiveRelationshipType(item);
                   const exists = Boolean(
                     tool &&
                       selectedTemplateProjectId &&
-                      relationshipExists(
-                        data,
-                        selectedTemplateProjectId,
-                        tool.id,
-                        item.relationshipType,
-                      ),
+                      relationshipExists(data, selectedTemplateProjectId, tool.id, effectiveType),
                   );
                   const missing = !tool;
                   const disabled = missing || !selectedTemplateProjectId;
-                  const key = templateKey(item);
-                  const checked = exists || selectedTemplateKeySet.has(key);
+                  const bKey = baseKey(item);
+                  const checked = exists || selectedToolBaseKeySet.has(bKey);
 
                   return (
                     <label
-                      key={key}
+                      key={bKey}
                       className={[
                         "flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2 text-sm",
                         disabled
@@ -450,14 +480,37 @@ export default function RelationshipsPage() {
                         checked={checked}
                         disabled={disabled}
                         onChange={() => toggleTemplateItem(item)}
-                        className="mt-1 h-4 w-4 rounded border-slate-300"
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300"
                       />
-                      <span className="min-w-0">
-                        <span className="block font-medium">
-                          {getRelationshipLabel(item.relationshipType)} {item.toolName}
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="font-medium">{item.toolName}</span>
+                          <select
+                            value={effectiveType}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setItemRelationshipTypes((prev) => ({
+                                ...prev,
+                                [bKey]: e.target.value as RelationshipType,
+                              }));
+                            }}
+                            disabled={disabled}
+                            className="shrink-0 rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-normal text-slate-700 disabled:opacity-40"
+                          >
+                            {ALL_RELATIONSHIP_TYPES.map((type) => (
+                              <option key={type} value={type}>
+                                {getRelationshipLabel(type)}
+                              </option>
+                            ))}
+                          </select>
                         </span>
                         <span className="mt-1 block text-xs opacity-70">
-                          {exists ? "Click to remove" : missing ? "Tool not found — add it to your tools first" : item.notes}
+                          {exists
+                            ? "Click to remove"
+                            : missing
+                            ? "Tool not found — add it to your tools first"
+                            : item.notes}
                         </span>
                       </span>
                     </label>
@@ -475,18 +528,41 @@ export default function RelationshipsPage() {
         ) : null}
       </section>
 
-      <EntityTable
-        items={data.relationships}
-        columns={columns}
-        emptyMessage="No relationships yet."
-        emptyDetail="Add a relationship to connect a project to a tool or another tool."
-        onEdit={startEditing}
-        onDelete={(id) => {
-          if (window.confirm("Delete this relationship?")) {
-            deleteRelationship(id);
-          }
-        }}
-      />
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-700">
+            {selectedTemplateProjectId
+              ? `Relationships — ${data.projects.find((p) => p.id === selectedTemplateProjectId)?.name ?? ""}`
+              : "All Relationships"}
+          </h2>
+          {selectedTemplateProjectId ? (
+            <button
+              type="button"
+              onClick={() => {
+                setTemplateProjectId("");
+                setSelectedToolBaseKeys([]);
+                setItemRelationshipTypes({});
+                setTemplateMessage("");
+              }}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+            >
+              Show all
+            </button>
+          ) : null}
+        </div>
+        <EntityTable
+          items={tableRelationships}
+          columns={columns}
+          emptyMessage={selectedTemplateProjectId ? "No relationships for this project yet." : "No relationships yet."}
+          emptyDetail="Add a relationship to connect a project to a tool or another tool."
+          onEdit={startEditing}
+          onDelete={(id) => {
+            if (window.confirm("Delete this relationship?")) {
+              deleteRelationship(id);
+            }
+          }}
+        />
+      </section>
     </div>
   );
 }

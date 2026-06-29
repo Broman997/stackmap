@@ -122,7 +122,7 @@ export function EntityTable<T extends { id: string }>({
             {sortedItems.map((item) => {
               const canDelete = getCanDelete ? getCanDelete(item) : true;
               return (
-                <tr key={item.id} className="align-top">
+                <tr key={item.id} className="align-top odd:bg-white even:bg-slate-50 hover:bg-indigo-50 transition-colors">
                   {columns.map((column) => (
                     <td key={column.header} className="px-4 py-3 text-slate-700">
                       {column.cell(item)}
