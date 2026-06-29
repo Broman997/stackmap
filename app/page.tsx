@@ -257,38 +257,69 @@ export default function DashboardPage() {
       </section>
 
       {process.env.NEXT_PUBLIC_DEMO_MODE === "true" ? (
-        <section className="rounded-lg border border-indigo-100 bg-indigo-50 p-5 text-sm text-slate-700">
-          <h2 className="text-base font-semibold text-slate-950">Welcome to StackMap!</h2>
-          <p className="mt-2 leading-relaxed">
-            StackMap is a free tool built by an indie developer to help track the projects, tools, subscriptions, and AI services that make up your app stack. If you find it useful, the desktop app is completely free and safe to download for both Windows and Mac — just click the button above. Your data never leaves your device and no account is ever required.
-          </p>
-          <p className="mt-3 leading-relaxed">
-            What you are looking at right now is sample data based on real indie apps — <strong>LogIT</strong>, <strong>KeyMatch Pro</strong>, and <strong>Home Inventory Vault</strong>. It is there to give you a feel for how the tool works with actual projects and tools.
-          </p>
-          <p className="mt-3 leading-relaxed">
-            Have a question, idea, or found a bug?{" "}
-            <a
-              href="https://github.com/Broman997/stackmap/issues"
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-indigo-600 hover:text-indigo-800 underline"
-            >
-              Open an issue on GitHub
-            </a>{" "}
-            — all feedback is welcome.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-md bg-white p-3 shadow-sm">
-              <p className="font-semibold text-slate-900">1. Explore the demo</p>
-              <p className="mt-1 text-slate-600">Browse the projects, tools, relationships, and visual map to see how everything connects.</p>
+        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm text-sm text-slate-700">
+          <div className="border-b border-slate-100 pb-5">
+            <h2 className="text-lg font-bold text-slate-950">Welcome to StackMap!</h2>
+            <p className="mt-2 leading-relaxed">
+              StackMap is a free tool built by an indie developer to help track the projects, tools, subscriptions, and AI services that make up your app stack. If you find it useful, the desktop app is completely free and safe to download for both Windows and Mac — just click the button above. Your data never leaves your device and no account is ever required.
+            </p>
+            <p className="mt-3 leading-relaxed">
+              What you are looking at right now is sample data based on real indie apps — <strong>LogIT</strong>, <strong>KeyMatch Pro</strong>, and <strong>Home Inventory Vault</strong>. It is there to give you a feel for how the tool works with actual projects and tools.
+            </p>
+            <p className="mt-3 leading-relaxed">
+              Have a question, idea, or found a bug?{" "}
+              <a
+                href="https://github.com/Broman997/stackmap/issues"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-indigo-600 underline hover:text-indigo-800"
+              >
+                Open an issue on GitHub
+              </a>{" "}
+              — all feedback is welcome.
+            </p>
+          </div>
+
+          <div className="pt-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Get started in 3 steps</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="font-semibold text-slate-900">1. Explore the demo</p>
+                <p className="mt-1 text-slate-600">Browse the projects, tools, relationships, and visual map to see how everything connects.</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="font-semibold text-slate-900">2. Clear the sample data</p>
+                <p className="mt-1 text-slate-600">Go to <strong>Settings</strong> and choose <strong>Clear Projects Only</strong> to keep the tool library, or <strong>Clear All Data</strong> to start completely fresh.</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="font-semibold text-slate-900">3. Add your own projects</p>
+                <p className="mt-1 text-slate-600">Head to <strong>Projects</strong> or <strong>Tools</strong> in the sidebar and start building your own private stack map.</p>
+              </div>
             </div>
-            <div className="rounded-md bg-white p-3 shadow-sm">
-              <p className="font-semibold text-slate-900">2. Clear the sample data</p>
-              <p className="mt-1 text-slate-600">Go to <strong>Settings</strong> and click <strong>Clear Projects Only</strong> to keep the tool library, or <strong>Clear All Data</strong> to start completely fresh.</p>
+          </div>
+
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Web or Desktop?</p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="font-semibold text-slate-900">Web version (this site) — easiest to get started</p>
+                <p className="mt-1 leading-relaxed text-slate-600">No download needed. Your data is saved privately in your browser and never sent anywhere. The only thing to keep in mind is that your data is tied to this browser — if you clear your browser history or switch browsers it won't carry over. Export a backup from Settings occasionally to keep a copy safe.</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="font-semibold text-slate-900">Desktop version — best for long-term use</p>
+                <p className="mt-1 leading-relaxed text-slate-600">Downloads as a Windows (.exe) or Mac (.dmg) installer. Your data is stored on your computer rather than in a browser, so it is more permanent. Windows users may see a security warning — click the arrow next to the blocked file and choose <strong>Keep</strong> to continue. This is normal for new apps and safe to proceed.</p>
+              </div>
             </div>
-            <div className="rounded-md bg-white p-3 shadow-sm">
-              <p className="font-semibold text-slate-900">3. Add your own projects</p>
-              <p className="mt-1 text-slate-600">Head to <strong>Projects</strong> or <strong>Tools</strong> in the sidebar and start building your own private stack map.</p>
+          </div>
+
+          <div className="mt-5 grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2">
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <p className="font-semibold text-slate-900">Clearing the sample data</p>
+              <p className="mt-1 leading-relaxed text-slate-600">Go to <strong>Settings</strong> and choose <strong>Clear Projects Only</strong> to remove the sample projects but keep the full tool library — so you don't have to re-add common tools like GitHub, Vercel, or Claude. Only choose <strong>Clear All Data</strong> if you want to start completely from scratch.</p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <p className="font-semibold text-slate-900">Backing up your data</p>
+              <p className="mt-1 leading-relaxed text-slate-600">Whether you use the web or desktop version, go to <strong>Settings</strong> and export a full backup every so often. This saves a JSON file you can import back into any version of StackMap at any time.</p>
             </div>
           </div>
         </section>
