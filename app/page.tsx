@@ -265,6 +265,18 @@ export default function DashboardPage() {
           <p className="mt-3 leading-relaxed">
             What you are looking at right now is sample data based on real indie apps — <strong>LogIT</strong>, <strong>KeyMatch Pro</strong>, and <strong>Home Inventory Vault</strong>. It is there to give you a feel for how the tool works with actual projects and tools.
           </p>
+          <p className="mt-3 leading-relaxed">
+            Have a question, idea, or found a bug?{" "}
+            <a
+              href="https://github.com/Broman997/stackmap/issues"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-indigo-600 hover:text-indigo-800 underline"
+            >
+              Open an issue on GitHub
+            </a>{" "}
+            — all feedback is welcome.
+          </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-md bg-white p-3 shadow-sm">
               <p className="font-semibold text-slate-900">1. Explore the demo</p>
