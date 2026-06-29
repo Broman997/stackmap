@@ -19,6 +19,14 @@ TYPICAL WORKFLOW AFTER MAKING CHANGES
 3. Run Build-Electron.cmd          (builds new desktop installer)
 4. Run the new .exe from dist\     (installs/updates the desktop app)
 
+RELEASING A NEW VERSION (Windows + Mac builds via GitHub Actions)
+------------------------------------------------------------------
+1. Make and commit your changes as normal
+2. git tag v0.X.X              (e.g. git tag v0.2.0)
+3. git push origin v0.X.X
+GitHub Actions will automatically build both installers and publish them
+to https://github.com/Broman997/stackmap/releases/latest (takes ~5 min).
+
 NOTES
 ------
 - Browser (localhost:3000) and the desktop app have SEPARATE data (localStorage).
