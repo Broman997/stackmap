@@ -233,15 +233,26 @@ export default function DashboardPage() {
             <p className="text-sm font-medium text-slate-950">Want to use StackMap on your desktop?</p>
             <p className="mt-1 text-sm text-slate-500">Free Windows app — your data stays local, no account needed.</p>
           </div>
-          <a
-            href="https://github.com/Broman997/stackmap/releases/latest"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            <Download className="h-4 w-4" aria-hidden="true" />
-            Download for Windows
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="https://github.com/Broman997/stackmap/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Download for Windows
+            </a>
+            <a
+              href="https://github.com/Broman997/stackmap/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Download for Mac
+            </a>
+          </div>
         </div>
       </section>
 
