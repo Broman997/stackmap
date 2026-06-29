@@ -48,14 +48,6 @@
         "filter": [
           "**/*"
         ]
-      },
-      {
-        "from": ".next/static",
-        "to": "app/.next/static"
-      },
-      {
-        "from": "public",
-        "to": "app/public"
       }
     ],
     "win": {
