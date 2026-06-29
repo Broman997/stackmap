@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "electron:dev": "node scripts/prepare-electron.mjs && electron .",
-    "electron:build": "cross-env ELECTRON_BUILD=true next build && node scripts/prepare-electron.mjs && electron-builder"
+    "electron:build": "cross-env ELECTRON_BUILD=true next build && node scripts/prepare-electron.mjs && electron-builder --publish never"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.1",
