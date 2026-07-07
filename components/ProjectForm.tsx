@@ -13,6 +13,7 @@ const defaultValue: ProjectFormValue = {
   notes: "",
   appStoreUrl: "",
   googlePlayUrl: "",
+  launchCommand: "",
 };
 
 export function ProjectForm({
@@ -52,6 +53,7 @@ export function ProjectForm({
           notes: String(formData.get("notes") ?? "").trim(),
           appStoreUrl: String(formData.get("appStoreUrl") ?? "").trim() || undefined,
           googlePlayUrl: String(formData.get("googlePlayUrl") ?? "").trim() || undefined,
+          launchCommand: String(formData.get("launchCommand") ?? "").trim() || undefined,
         });
       }}
     >
@@ -136,6 +138,19 @@ export function ProjectForm({
           />
         </label>
       </div>
+      <label className="grid gap-1 text-sm font-medium text-slate-700">
+        Launch Command
+        <input
+          name="launchCommand"
+          value={value.launchCommand ?? ""}
+          onChange={(event) => updateValue("launchCommand", event.target.value)}
+          placeholder={`C:\\Windows\\System32\\cmd.exe /c "C:\\Projects\\MyApp\\Start.cmd"`}
+          className="rounded-md border border-slate-300 px-3 py-2 font-normal font-mono text-xs"
+        />
+        <span className="text-xs font-normal text-slate-500">
+          Desktop app only. Paste the full Windows command to launch this project (e.g. from a shortcut target).
+        </span>
+      </label>
       <label className="grid gap-1 text-sm font-medium text-slate-700">
         Notes
         <textarea

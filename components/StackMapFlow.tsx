@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Expand, RotateCcw, Shrink } from "lucide-react";
+import { Expand, Play, RotateCcw, Shrink } from "lucide-react";
 import {
   Background,
   Controls,
@@ -33,6 +33,7 @@ type MapNodeData = {
   href?: string;
   appStoreUrl?: string;
   googlePlayUrl?: string;
+  launchCommand?: string;
   attentionCount: number;
   lane: "Workspace" | "AI" | "Project" | "Support";
 };
@@ -278,6 +279,7 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
           href: `/projects/${project.id}`,
           appStoreUrl: project.appStoreUrl,
           googlePlayUrl: project.googlePlayUrl,
+          launchCommand: project.launchCommand,
           attentionCount,
           lane,
         },
@@ -661,6 +663,16 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
           <a href={selected.googlePlayUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center overflow-hidden">
             <img src="/badges/google-play.png" alt="Get it on Google Play" className="-my-[8px] h-14" />
           </a>
+        ) : null}
+        {selected.launchCommand && typeof window !== "undefined" && (window as any).electronAPI ? (
+          <button
+            type="button"
+            onClick={() => (window as any).electronAPI.launchCommand(selected.launchCommand)}
+            className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+          >
+            <Play className="h-4 w-4" aria-hidden="true" />
+            Launch
+          </button>
         ) : null}
         {selected.href ? (
           <Link

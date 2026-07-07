@@ -1,10 +1,12 @@
 'use strict';
 
-const { app, BrowserWindow, utilityProcess } = require('electron');
+const { app, BrowserWindow, utilityProcess, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
+const { exec } = require('child_process');
 
-const PORT = 3000;
+const HOST = '127.0.0.1';
+const PORT = 47622;
 let serverProcess = null;
 let mainWindow = null;
 
@@ -15,28 +17,53 @@ function getServerScript() {
   return path.join(__dirname, '..', '.next', 'standalone', 'server.js');
 }
 
-function startServer() {
+function startServer(port) {
   const script = getServerScript();
   serverProcess = utilityProcess.fork(script, [], {
     env: {
       ...process.env,
-      PORT: String(PORT),
-      HOSTNAME: 'localhost',
+      PORT: String(port),
+      HOSTNAME: HOST,
     },
   });
 }
 
-function waitForReady(maxAttempts = 40) {
+function waitForReady(port, maxAttempts = 40) {
   return new Promise((resolve, reject) => {
     let attempts = 0;
-    function check() {
-      const req = http.get(`http://localhost:${PORT}`, () => {
+    let settled = false;
+
+    const fail = (err) => {
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
+    };
+
+    const ready = () => {
+      if (!settled) {
+        settled = true;
         resolve();
+      }
+    };
+
+    if (serverProcess) {
+      serverProcess.once('exit', (code) => {
+        fail(new Error(`StackMap server exited before startup completed${code === null ? '' : ` with code ${code}`}`));
+      });
+    }
+
+    function check() {
+      if (settled) return;
+
+      const req = http.get(`http://${HOST}:${port}`, (res) => {
+        res.resume();
+        ready();
       });
       req.on('error', () => {
         attempts++;
         if (attempts >= maxAttempts) {
-          reject(new Error(`StackMap server did not respond after ${maxAttempts} seconds`));
+          fail(new Error(`StackMap server did not respond after ${maxAttempts} seconds`));
         } else {
           setTimeout(check, 1000);
         }
@@ -48,6 +75,10 @@ function waitForReady(maxAttempts = 40) {
 }
 
 async function createWindow() {
+  const preloadPath = app.isPackaged
+    ? path.join(__dirname, 'preload.cjs')
+    : path.join(__dirname, 'preload.cjs');
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -58,17 +89,18 @@ async function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: preloadPath,
     },
   });
 
   mainWindow.setMenuBarVisibility(false);
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
-  startServer();
-
   try {
-    await waitForReady();
-    mainWindow.loadURL(`http://localhost:${PORT}`);
+    startServer(PORT);
+    await waitForReady(PORT);
+    await mainWindow.webContents.session.clearCache();
+    mainWindow.loadURL(`http://${HOST}:${PORT}`);
   } catch (err) {
     mainWindow.loadURL(
       `data:text/html,<h1 style="font-family:sans-serif;padding:2rem">StackMap failed to start</h1><p style="font-family:sans-serif;padding:0 2rem">${err.message}</p>`
@@ -77,7 +109,24 @@ async function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow);
+ipcMain.handle('launch-command', (_event, command) => {
+  if (!command || typeof command !== 'string') return;
+  exec(command, { windowsHide: false });
+});
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+
+  app.whenReady().then(createWindow);
+}
 
 app.on('window-all-closed', () => {
   if (serverProcess) {

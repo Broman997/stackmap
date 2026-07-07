@@ -67,6 +67,7 @@ export type Project = SourceMetadata & {
   notes: string;
   appStoreUrl?: string;
   googlePlayUrl?: string;
+  launchCommand?: string;
   lastReviewedAt?: string;
   createdAt: string;
   updatedAt: string;
