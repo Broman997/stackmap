@@ -9,6 +9,7 @@ const HOST = '127.0.0.1';
 const PORT = 47622;
 let serverProcess = null;
 let mainWindow = null;
+const externalWindows = new Set();
 
 function getServerScript() {
   if (app.isPackaged) {
@@ -74,6 +75,56 @@ function waitForReady(port, maxAttempts = 40) {
   });
 }
 
+function isStackMapUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === HOST && parsed.port === String(PORT);
+  } catch {
+    return false;
+  }
+}
+
+function createExternalWindow(url) {
+  const externalWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 900,
+    minHeight: 650,
+    show: false,
+    autoHideMenuBar: true,
+    title: 'StackMap Link',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  externalWindows.add(externalWindow);
+  externalWindow.once('ready-to-show', () => {
+    externalWindow.maximize();
+    externalWindow.show();
+  });
+  externalWindow.on('closed', () => externalWindows.delete(externalWindow));
+  configureWindowOpenHandler(externalWindow);
+  externalWindow.loadURL(url);
+}
+
+function configureWindowOpenHandler(window) {
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (isStackMapUrl(url)) {
+      if (mainWindow) {
+        mainWindow.loadURL(url);
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+      }
+      return { action: 'deny' };
+    }
+
+    createExternalWindow(url);
+    return { action: 'deny' };
+  });
+}
+
 async function createWindow() {
   const preloadPath = app.isPackaged
     ? path.join(__dirname, 'preload.cjs')
@@ -94,6 +145,7 @@ async function createWindow() {
   });
 
   mainWindow.setMenuBarVisibility(false);
+  configureWindowOpenHandler(mainWindow);
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
   try {

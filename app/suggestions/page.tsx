@@ -249,6 +249,7 @@ export default function SuggestionsPage() {
         type: textField(suggestion, "type", "other") as ProjectType,
         status: "active",
         notes: suggestion.notes || textField(suggestion, "notes"),
+        websiteUrl: textField(suggestion, "websiteUrl"),
         lastReviewedAt: "",
         ...sourceMetadata(suggestion),
       });
@@ -324,6 +325,7 @@ export default function SuggestionsPage() {
         notes: suggestedNotes
           ? [current.notes, suggestedNotes].filter(Boolean).join("\n")
           : current.notes,
+        websiteUrl: current.websiteUrl || textField(suggestion, "websiteUrl"),
         ...sourceMetadata(suggestion),
       });
       updateSuggestionStatus(suggestion.id, "accepted");

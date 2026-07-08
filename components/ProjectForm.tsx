@@ -11,6 +11,7 @@ const defaultValue: ProjectFormValue = {
   type: "other",
   status: "active",
   notes: "",
+  websiteUrl: "",
   appStoreUrl: "",
   googlePlayUrl: "",
   launchCommand: "",
@@ -51,6 +52,7 @@ export function ProjectForm({
           type: String(formData.get("type") ?? "other") as ProjectFormValue["type"],
           status: String(formData.get("status") ?? "active") as ProjectFormValue["status"],
           notes: String(formData.get("notes") ?? "").trim(),
+          websiteUrl: String(formData.get("websiteUrl") ?? "").trim() || undefined,
           appStoreUrl: String(formData.get("appStoreUrl") ?? "").trim() || undefined,
           googlePlayUrl: String(formData.get("googlePlayUrl") ?? "").trim() || undefined,
           launchCommand: String(formData.get("launchCommand") ?? "").trim() || undefined,
@@ -114,7 +116,18 @@ export function ProjectForm({
           </select>
         </label>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
+        <label className="grid gap-1 text-sm font-medium text-slate-700">
+          Website URL
+          <input
+            name="websiteUrl"
+            type="url"
+            value={value.websiteUrl ?? ""}
+            onChange={(event) => updateValue("websiteUrl", event.target.value)}
+            placeholder="https://example.com"
+            className="rounded-md border border-slate-300 px-3 py-2 font-normal"
+          />
+        </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700">
           App Store URL
           <input

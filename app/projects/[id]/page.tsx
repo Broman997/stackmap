@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, ExternalLink, Pencil, Plus } from "lucide-react";
 import { useStackMapData } from "@/lib/storage";
 import {
   formatDate,
@@ -52,6 +52,17 @@ export default function ProjectDetailPage() {
             <p className="mt-2 text-sm text-slate-600">{project.notes || "No notes yet."}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {project.websiteUrl ? (
+              <a
+                href={project.websiteUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                Open Website
+              </a>
+            ) : null}
             {project.appStoreUrl ? (
               <a href={project.appStoreUrl} target="_blank" rel="noreferrer" className="inline-flex items-center">
                 <img src="/badges/app-store.svg" alt="Download on the App Store" className="h-10" />
@@ -103,6 +114,16 @@ export default function ProjectDetailPage() {
                 <dd className="min-w-0 text-right font-medium text-slate-900">
                   <a href={project.sourceUrl} target="_blank" rel="noreferrer" className="break-all text-indigo-600 hover:text-indigo-800">
                     {project.sourceName || project.sourceUrl}
+                  </a>
+                </dd>
+              </div>
+            ) : null}
+            {project.websiteUrl ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Website</dt>
+                <dd className="min-w-0 text-right font-medium text-slate-900">
+                  <a href={project.websiteUrl} target="_blank" rel="noreferrer" className="break-all text-indigo-600 hover:text-indigo-800">
+                    {project.websiteUrl}
                   </a>
                 </dd>
               </div>

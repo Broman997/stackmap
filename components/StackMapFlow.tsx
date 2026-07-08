@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Expand, Play, RotateCcw, Shrink } from "lucide-react";
+import { Expand, ExternalLink, Play, RotateCcw, Shrink } from "lucide-react";
 import {
   Background,
   Controls,
@@ -14,7 +14,7 @@ import {
   type Node,
 } from "@xyflow/react";
 import { RELATIONSHIP_TYPES } from "@/lib/constants";
-import type { RelationshipType, StackMapData } from "@/lib/types";
+import type { Project, RelationshipType, StackMapData } from "@/lib/types";
 import {
   cn,
   getEntityName,
@@ -27,15 +27,35 @@ type MapFilter = "all" | "projects" | "tools" | "connected";
 
 type MapNodeData = {
   label: string;
-  kind: "Project" | "Tool" | "Relationship";
+  kind: "Project" | "Tool" | "Relationship" | "ProjectGroup";
   meta: string;
   notes: string;
   href?: string;
+  websiteUrl?: string;
   appStoreUrl?: string;
   googlePlayUrl?: string;
   launchCommand?: string;
   attentionCount: number;
   lane: "Workspace" | "AI" | "Project" | "Support";
+};
+
+type ProjectGroupId = "mobile" | "website" | "desktop" | "service" | "marketing" | "other";
+
+type ProjectGroupDefinition = {
+  id: ProjectGroupId;
+  label: string;
+  description: string;
+  style: {
+    border: string;
+    background: string;
+    color: string;
+  };
+};
+
+type ElectronWindow = Window & {
+  electronAPI?: {
+    launchCommand: (command: string) => void;
+  };
 };
 
 const filterOptions: Array<{ value: MapFilter; label: string }> = [
@@ -47,6 +67,69 @@ const filterOptions: Array<{ value: MapFilter; label: string }> = [
 
 const workspaceToolNames = ["visual studio", "vs code", "xcode", "android studio", "cursor"];
 const aiToolNames = ["chatgpt", "codex", "claude", "openai"];
+
+const projectGroups: ProjectGroupDefinition[] = [
+  {
+    id: "website",
+    label: "Websites",
+    description: "Public sites, landing pages, and web dashboards",
+    style: {
+      border: "#2563eb",
+      background: "#dbeafe",
+      color: "#1e3a8a",
+    },
+  },
+  {
+    id: "mobile",
+    label: "Mobile Apps",
+    description: "iOS, Android, and cross-platform app projects",
+    style: {
+      border: "#059669",
+      background: "#d1fae5",
+      color: "#064e3b",
+    },
+  },
+  {
+    id: "desktop",
+    label: "Computer Apps",
+    description: "Desktop and locally launched app projects",
+    style: {
+      border: "#7c3aed",
+      background: "#ede9fe",
+      color: "#4c1d95",
+    },
+  },
+  {
+    id: "service",
+    label: "Services & Backends",
+    description: "Backends, APIs, and shared services",
+    style: {
+      border: "#d97706",
+      background: "#fef3c7",
+      color: "#78350f",
+    },
+  },
+  {
+    id: "marketing",
+    label: "Marketing",
+    description: "Campaigns, funnels, and content projects",
+    style: {
+      border: "#db2777",
+      background: "#fce7f3",
+      color: "#831843",
+    },
+  },
+  {
+    id: "other",
+    label: "Other Projects",
+    description: "Records that do not fit another group yet",
+    style: {
+      border: "#64748b",
+      background: "#f1f5f9",
+      color: "#334155",
+    },
+  },
+];
 
 const focusedRelationshipOrder = [
   "uses",
@@ -66,6 +149,47 @@ function getToolLane(tool: StackMapData["tools"][number]): MapNodeData["lane"] {
   if (workspaceToolNames.some((n) => name.includes(n))) return "Workspace";
   if (tool.category === "AI" || aiToolNames.some((n) => name.includes(n))) return "AI";
   return "Support";
+}
+
+function getProjectGroupId(project: Project): ProjectGroupId {
+  const name = project.name.toLowerCase();
+  const type = project.type.toLowerCase();
+
+  if (
+    type === "website" ||
+    name.includes("website") ||
+    name.includes(" web ") ||
+    (project.websiteUrl && !project.appStoreUrl && !project.googlePlayUrl)
+  ) {
+    return "website";
+  }
+
+  if (
+    type === "mobile app" ||
+    type === "ios app" ||
+    type === "android app" ||
+    project.appStoreUrl ||
+    project.googlePlayUrl ||
+    name.endsWith(" app")
+  ) {
+    return "mobile";
+  }
+
+  if (
+    project.launchCommand ||
+    name.includes("desktop") ||
+    name.includes("electron") ||
+    name.includes("windows") ||
+    name.includes("mac app") ||
+    name.includes("computer app")
+  ) {
+    return "desktop";
+  }
+
+  if (type === "backend") return "service";
+  if (type === "marketing") return "marketing";
+
+  return "other";
 }
 
 function getLanePosition(lane: MapNodeData["lane"], index: number) {
@@ -91,6 +215,100 @@ function getToolOrder(tool: StackMapData["tools"][number]) {
   if (name.includes("android studio")) return 3;
   if (name.includes("cursor")) return 4;
   return 10;
+}
+
+function getStyleNumber(value: string | number | undefined, fallback: number) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function getMapNodeWidth(node: Node<MapNodeData>) {
+  return getStyleNumber(node.style?.width, node.data.kind === "Tool" ? 210 : 240);
+}
+
+function getMapNodeHeight(node: Node<MapNodeData>) {
+  return getStyleNumber(node.style?.height, node.data.kind === "ProjectGroup" ? 66 : 54);
+}
+
+function applyProjectGroupLayout(nodes: Node<MapNodeData>[], projects: Project[]) {
+  const projectById = new Map(projects.map((project) => [`project:${project.id}`, project]));
+  const groupedProjectNodes = new Map<ProjectGroupId, Node<MapNodeData>[]>();
+
+  projectGroups.forEach((group) => groupedProjectNodes.set(group.id, []));
+
+  nodes.forEach((node) => {
+    if (node.data.kind !== "Project") return;
+    const project = projectById.get(node.id);
+    const groupId = project ? getProjectGroupId(project) : "other";
+    groupedProjectNodes.get(groupId)?.push(node);
+  });
+
+  const nodeWidth = 240;
+  const columnGap = 28;
+  const groupGap = 76;
+  const headerHeight = 66;
+  const headerGap = 34;
+  const rowGap = 86;
+  const maxRowsPerColumn = 7;
+  let x = 0;
+
+  return projectGroups.flatMap((group) => {
+    const groupNodes = [...(groupedProjectNodes.get(group.id) ?? [])].sort((a, b) =>
+      a.data.label.localeCompare(b.data.label),
+    );
+
+    if (groupNodes.length === 0) return [];
+
+    const columnCount = Math.max(1, Math.ceil(groupNodes.length / maxRowsPerColumn));
+    const groupWidth = columnCount * nodeWidth + (columnCount - 1) * columnGap;
+    const groupX = x;
+    x += groupWidth + groupGap;
+
+    const headerNode: Node<MapNodeData> = {
+      id: `project-group:${group.id}`,
+      position: { x: groupX, y: 0 },
+      data: {
+        label: group.label,
+        kind: "ProjectGroup",
+        meta: `${groupNodes.length} project${groupNodes.length === 1 ? "" : "s"}`,
+        notes: group.description,
+        attentionCount: 0,
+        lane: "Project",
+      },
+      style: {
+        border: `1px solid ${group.style.border}`,
+        background: group.style.background,
+        color: group.style.color,
+        borderRadius: 8,
+        padding: 10,
+        width: groupWidth,
+        height: headerHeight,
+        fontWeight: 700,
+        boxShadow: "0 1px 2px rgb(15 23 42 / 0.08)",
+      },
+      draggable: false,
+      selectable: false,
+    };
+
+    const positionedProjects = groupNodes.map((node, index) => {
+      const column = Math.floor(index / maxRowsPerColumn);
+      const row = index % maxRowsPerColumn;
+
+      return {
+        ...node,
+        position: {
+          x: groupX + column * (nodeWidth + columnGap),
+          y: headerHeight + headerGap + row * rowGap,
+        },
+      };
+    });
+
+    return [headerNode, ...positionedProjects];
+  });
 }
 
 function applyFocusedGroupLayout(
@@ -229,7 +447,7 @@ function applyFocusedGroupLayout(
 // ─── Inner component (has access to useReactFlow) ─────────────────────────────
 
 function StackMapFlowContent({ data }: { data: StackMapData }) {
-  const { fitView, setCenter } = useReactFlow();
+  const { fitView, setViewport } = useReactFlow();
   const [selected, setSelected] = useState<MapNodeData | null>(null);
   const [focusedProjectIds, setFocusedProjectIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<MapFilter>("projects");
@@ -237,6 +455,7 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [tooltipNotes, setTooltipNotes] = useState<string | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   function handleCanvasMouseMove(event: React.MouseEvent) {
     if (tooltipRef.current && tooltipNotes) {
@@ -277,6 +496,7 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
           meta: `${project.type} / ${project.status}`,
           notes: project.notes,
           href: `/projects/${project.id}`,
+          websiteUrl: project.websiteUrl,
           appStoreUrl: project.appStoreUrl,
           googlePlayUrl: project.googlePlayUrl,
           launchCommand: project.launchCommand,
@@ -375,13 +595,18 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
   }, [data.relationships, focusedProjectIds]);
 
   const nodes = useMemo(() => {
-    if (!focusedRelatedIds) return filteredNodes;
+    if (!focusedRelatedIds) {
+      if (filter === "projects") {
+        return applyProjectGroupLayout(filteredNodes, data.projects);
+      }
+      return filteredNodes;
+    }
     return applyFocusedGroupLayout(
       filteredNodes.filter((node) => focusedRelatedIds.has(node.id)),
       data.relationships,
       focusedProjectIds,
     );
-  }, [data.relationships, filteredNodes, focusedProjectIds, focusedRelatedIds]);
+  }, [data.projects, data.relationships, filter, filteredNodes, focusedProjectIds, focusedRelatedIds]);
 
   const visibleNodeIds = useMemo(() => new Set(nodes.map((n) => n.id)), [nodes]);
 
@@ -468,20 +693,43 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
     prevTriggerRef.current = fitViewTrigger;
     const id = window.requestAnimationFrame(() => {
       if (filter === "projects" && focusedProjectIds.length === 0 && nodes.length > 0) {
+        const container = canvasContainerRef.current;
+        if (!container) {
+          fitView({ padding: 0.12, minZoom: 0.25, maxZoom: 1, duration: 250 });
+          return;
+        }
+
         const minX = Math.min(...nodes.map((node) => node.position.x));
-        const maxX = Math.max(...nodes.map((node) => node.position.x + 240));
+        const maxX = Math.max(...nodes.map((node) => node.position.x + getMapNodeWidth(node)));
         const minY = Math.min(...nodes.map((node) => node.position.y));
-        const maxY = Math.max(...nodes.map((node) => node.position.y + 52));
-        setCenter((minX + maxX) / 2, (minY + maxY) / 2, {
-          zoom: 1,
-          duration: 250,
+        const maxY = Math.max(...nodes.map((node) => node.position.y + getMapNodeHeight(node)));
+        const boundsWidth = Math.max(1, maxX - minX);
+        const boundsHeight = Math.max(1, maxY - minY);
+        const horizontalPadding = 40;
+        const topPadding = 28;
+        const bottomPadding = 80;
+        const zoom = Math.min(
+          1,
+          Math.max(
+            0.25,
+            Math.min(
+              (container.clientWidth - horizontalPadding * 2) / boundsWidth,
+              (container.clientHeight - topPadding - bottomPadding) / boundsHeight,
+            ),
+          ),
+        );
+
+        setViewport({
+          x: (container.clientWidth - boundsWidth * zoom) / 2 - minX * zoom,
+          y: topPadding - minY * zoom,
+          zoom,
         });
         return;
       }
       fitView({ padding: 0.18, minZoom: 0.25, maxZoom: 1 });
     });
     return () => window.cancelAnimationFrame(id);
-  }, [filter, fitView, fitViewTrigger, focusedProjectIds.length, nodes, setCenter]);
+  }, [filter, fitView, fitViewTrigger, focusedProjectIds.length, nodes, setViewport]);
 
   const focusedLabel =
     focusedProjectIds.length === 1
@@ -539,6 +787,9 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
   function resetMap() {
     showProjects();
   }
+
+  const electronAPI =
+    typeof window === "undefined" ? undefined : (window as ElectronWindow).electronAPI;
 
   const filterPanel = (
     <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
@@ -634,7 +885,9 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
       ) : null}
 
       <div className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
-        <p>{nodes.length} visible nodes</p>
+        <p>
+          {nodes.filter((node) => node.data.kind !== "ProjectGroup").length} visible records
+        </p>
         <p>{edges.length} visible edges</p>
         <p>{connectedIds.size} connected records</p>
       </div>
@@ -654,6 +907,17 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
+        {selected.websiteUrl ? (
+          <a
+            href={selected.websiteUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-md border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            Open Website
+          </a>
+        ) : null}
         {selected.appStoreUrl ? (
           <a href={selected.appStoreUrl} target="_blank" rel="noreferrer" className="inline-flex items-center">
             <img src="/badges/app-store.svg" alt="Download on the App Store" className="h-10" />
@@ -664,10 +928,10 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
             <img src="/badges/google-play.png" alt="Get it on Google Play" className="-my-[8px] h-14" />
           </a>
         ) : null}
-        {selected.launchCommand && typeof window !== "undefined" && (window as any).electronAPI ? (
+        {selected.launchCommand && electronAPI ? (
           <button
             type="button"
-            onClick={() => (window as any).electronAPI.launchCommand(selected.launchCommand)}
+            onClick={() => electronAPI.launchCommand(selected.launchCommand ?? "")}
             className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
           >
             <Play className="h-4 w-4" aria-hidden="true" />
@@ -703,7 +967,7 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
       minZoom={0.15}
       maxZoom={1.4}
       onNodeClick={(event, node) => {
-        if (node.data.kind === "Relationship") return;
+        if (node.data.kind === "Relationship" || node.data.kind === "ProjectGroup") return;
         setSelected(node.data);
         if (event.ctrlKey || event.metaKey) {
           setFocusedProjectIds((current) =>
@@ -746,7 +1010,7 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
       <div className="fixed inset-0 z-50 flex flex-col gap-3 overflow-auto bg-slate-50 p-4" onMouseMove={handleCanvasMouseMove}>
         {filterPanel}
         {selectedSummary}
-        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div ref={canvasContainerRef} className="min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           {canvas}
         </div>
         {tooltipOverlay}
@@ -758,7 +1022,7 @@ function StackMapFlowContent({ data }: { data: StackMapData }) {
     <div className="space-y-4" onMouseMove={handleCanvasMouseMove}>
       {filterPanel}
       {selectedSummary}
-      <div className="h-[calc(100vh-18rem)] min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div ref={canvasContainerRef} className="h-[calc(100vh-18rem)] min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {canvas}
       </div>
       {tooltipOverlay}
