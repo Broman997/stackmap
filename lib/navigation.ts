@@ -2,6 +2,7 @@ export type NavItemId =
   | "dashboard"
   | "find"
   | "attention"
+  | "import"
   | "projects"
   | "tools"
   | "subscriptions"
@@ -22,6 +23,7 @@ export const DEFAULT_NAV_ITEMS: NavItemDefinition[] = [
   { id: "dashboard", href: "/", label: "Dashboard" },
   { id: "find", href: "/search", label: "Find" },
   { id: "attention", href: "/review", label: "Needs Attention" },
+  { id: "import", href: "/import", label: "Import" },
   { id: "projects", href: "/projects", label: "Projects" },
   { id: "tools", href: "/tools", label: "Tools" },
   { id: "subscriptions", href: "/subscriptions", label: "Subscriptions" },

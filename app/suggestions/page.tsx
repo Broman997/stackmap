@@ -250,6 +250,7 @@ export default function SuggestionsPage() {
         status: "active",
         notes: suggestion.notes || textField(suggestion, "notes"),
         websiteUrl: textField(suggestion, "websiteUrl"),
+        launchCommand: textField(suggestion, "launchCommand"),
         lastReviewedAt: "",
         ...sourceMetadata(suggestion),
       });
@@ -326,6 +327,7 @@ export default function SuggestionsPage() {
           ? [current.notes, suggestedNotes].filter(Boolean).join("\n")
           : current.notes,
         websiteUrl: current.websiteUrl || textField(suggestion, "websiteUrl"),
+        launchCommand: current.launchCommand || textField(suggestion, "launchCommand"),
         ...sourceMetadata(suggestion),
       });
       updateSuggestionStatus(suggestion.id, "accepted");

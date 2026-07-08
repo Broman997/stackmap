@@ -39,7 +39,7 @@ export type RelationshipType =
   | "other";
 
 export type SubscriptionStatus = "active" | "trial" | "cancelled" | "unknown";
-export type SuggestionSource = "manual_import";
+export type SuggestionSource = "manual_import" | "local_folder_scan";
 export type SuggestionEntityType = "project" | "tool" | "relationship" | "subscription";
 export type SuggestionStatus = "pending" | "accepted" | "dismissed";
 export type SuggestionFieldValue = string | number | boolean | null;
